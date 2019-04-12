@@ -1,10 +1,13 @@
 .data
-msg: .asciiz "Ingrese la memoria a reservar (bytes): "
-msg1:	.asciiz  "\n"
-error_init: .asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
+	msg: 		.asciiz "Ingrese la memoria a reservar (bytes): "
+	msg1:		.asciiz  "\n"
+	error_init:	.asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
+
+	heapsize:	.byte 500
+	size: 		.byte 0
+	freeList 	.byte 0:100
+
 initHead: .word 0
-heapsize:  .word 500
-size:  .word 0
 code:  .word 0
 
 .text
@@ -38,8 +41,6 @@ main:
 	jal end
 
 
-
-
 init:
 	lw $t0 heapsize
 	lw $t1 size
@@ -55,9 +56,8 @@ init:
 
 perror:
 	sw $t0, code
-	
-	seq $t2, $t1, -1
-	beq $t2, -1, print_error_init
+	#seq $t2, $t0, -1
+	beq $t0, -1, print_error_init
 
 code_init:
 	lw $t0, code
@@ -80,3 +80,6 @@ test:
 end:
 	li $v0 10
 	syscall
+
+malloc:
+	
