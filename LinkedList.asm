@@ -1,16 +1,7 @@
 #Vamos a definir una linked list:
 
 .data
-	#La lista "L" tiene como atributos head y tail.
- 	L: .space 4
-	L.head: .space 4 
-	L.tail: .space 4
-	L.nElements: .word 0
-
-#	Forma de una lista: 
-#	| 4b:head ptr | 4b: tail ptr | 4b: nElements |	
-	head: .space 4
-	tail: .space 4
+	space: .asciiz " "	
 .macro create($size)
 	#size es el tamaño de los elementos que van a estar contenidos en la lista 
 	#Primero tenemos que alojar el espacio total que vamos a necesitar para la lista:
@@ -71,8 +62,53 @@
 	syscall
 .end_macro
 
-.text
+.macro fun_print($nodeDir)
+	
+#	FALTA GUARDAR LOS REGISTROS QUE NO SON T
 
+	# nodedir: es la dirección del nodo que vamos a imprimir
+	
+	add $t8, $zero, $nodeDir # t8: nodeDir
+	lw $a0, 0($t8) # a0 <- apuntador al elemento
+	lw $a0, 0($a0)
+	addi $v0, $zero, 1
+	syscall
+	
+	
+.end_macro
+
+
+.macro print($lista,$function)
+
+	#Guardamos la dirección de lista en t0
+	add $t0, $zero, $lista
+	#En t1 vamos a llevar el siguiente elemento a imprimir, empezamos con el primero:
+	add $a0, $zero, $t0
+	jal first
+	add $t1, $zero, $v0 #t1: primer elemento
+	
+	_printWhileT1NotZero:
+		beqz $t1, _endPrint
+		$function($t1)
+		#Incrementamos t1:
+		add $a0, $zero, $t1
+		jal next
+		add $t1, $zero, $v0
+		
+		la $a0, space
+		addi $v0, $zero, 4
+		syscall
+		
+		bnez $t1, _printWhileT1NotZero
+		
+		
+	
+		
+	_endPrint:		
+	#return: dirección del nodo siguiente al nodo dado. 
+.end_macro
+
+.text
 	#Creamos una lista
 	create(8)
 	add $s0, $zero, $v0 # s0: lista
@@ -82,64 +118,32 @@
 	sw $s2, 0($v0)      # numero nuevo <- 7
 	insert($s0,$s1)
 	malloc(4)
-add $s1, $zero, $v0 # s1: numero nuevo que creamos
+	add $s1, $zero, $v0 # s1: numero nuevo que creamos
 	addi $s2, $zero, 7  
 	sw $s2, 0($v0)      # numero nuevo <- 7
 	insert($s0,$s1)	
+	malloc(4)
+	add $s1, $zero, $v0
+	addi $s2, $zero, 100
+	sw $s2, 0($v0)
+	insert($s0,$s1)
+	
+	print($s0, fun_print)
+	#fun_print()
 	
 	j end
 
 
-NewList:
-	#Contructor de lista. Crea nodos que contengan datos con el tamaño
-	#indicado en a0, retorna un apuntador a la lista. Esta lista va a 
-	#contener un apuntador a la head en los primeros 4 bytes y a uno la tail
-	# en los siguientes 4. En los últimos 4 bytes está la cantidad de elementos.
-	
-	#Guardamos lo que vamos a usar: s0,s1,s2, ra
-	sw $s0, -0($sp)
-	addi $sp, $sp, -4
-	
-	sw $s1, -0($sp)
-	addi $sp, $sp, -4
-	
-	sw $ra, -0($sp)
-	addi $sp, $sp, -4
-	
-	
-	#ahora guardamos el argumento (a0) en s0:
-	move $s0, $a0
-	
-	#Creamos un nodo de la lista:
-	addi $a0, $a0, 4
-#	jal malloc
-	
-	#Guardamos este nodo en s1, será el head y la tail de la lista.
-	move $s1, $v0
-	#Configuramos el siguiente de este nodo como 0 (null)
-	addi $v0, $v0, 4
-	sw $zero, ($v0)
-	
-	#Alojamos el espacio para la lista, una lista necesita 16 bytes:
-	addi $a0, $zero, 16
-#	jal malloc
-	
-	#Configuramos el head y tail de la lista que creamos como el nuevo nodo:
-	sw $s1, ($v0)
-	sw $s1, 4($v0)		
-	
-	#Configuramos el número actual de elementos como 0:
-	sw $zero, 8($v0)
-	
-	#Configuramos el tamaño del nodo como el tamaño dado y guardado en s0
-	sw $s0, 12($v0)
-	
-	#Restauramos los registros utilizados:
-	lw $ra 4($sp)
-	lw $s1 8($sp)	
-	lw $s0 12($sp)	
-	addi $sp $sp 12
-	#volvemos
+
+first:
+	#a0: direccion de la lista cuyo primero queremos obtener
+	lw $v0, 0($a0)
+	jr $ra
+	#return: la dirección del primer elemento
+
+next:
+	#a0: elemento cuyo siguiente queremos obtener
+	lw $v0, 4($a0)
 	jr $ra
 
 end:
