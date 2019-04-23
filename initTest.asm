@@ -2,7 +2,7 @@
 	
 	initHead: .word 0 #Head del segmento de memoria pedido
 	heapSize: .word 0
-	avaibleSpace: .word 0 #Espacio disponible en cada momento
+	availableSpace: .word 0 #Espacio disponible en cada momento
 	debugStr: .asciiz "Debug\n"
 	
 	### Estructura del heap virtual ###
@@ -24,7 +24,7 @@
 	
 	#guardamos el espacio pedido
 	add $t0, $zero, $size
-	sw $t0, avaibleSpace
+	sw $t0, availableSpace
 	sw $t0, heapSize	
 	#Guardamos el inicio de la memoria
 	sw $v0 initHead
@@ -37,8 +37,8 @@
 	#Guardamos en t1 el tamaño que tenemos que buscar (es size+2 por la head y la tail):
 	addi $t1, $t0, 2
 	
-	#Ahora guardamos en t2 el límite de iteración. Vamos a iterar hasta: avaibleSpace - size - 1
-	lw $t2, avaibleSpace
+	#Ahora guardamos en t2 el límite de iteración. Vamos a iterar hasta: availableSpace - size - 1
+	lw $t2, availableSpace
 	sub $t2,$t2,$t1
 	#Como t1 es size + 2, tenemos que sumar 1 para que sea size + 1
 	addi $t2, $t2, 1
@@ -81,6 +81,7 @@
 			#configuramos el candidato a posición de malloc t7 como el tail+1
 			move $t7, $t4
 			j _endMallocIf0
+		
 		_keepCounting:
 			#¿El elemento actual es == 0? Entonces sigue contando.
 			addi $t3, $t3, 1
@@ -94,11 +95,10 @@
 	
 		#¿Terminamos el ciclo? Para terminar se tiene que cumplir que ($t3)==($t1) O ($t6)>=(avaibleSpace)
 
-		slt $t8, $t3, $t1 # t8 = ¿($t3)<($t1)? 
+		slt $t8, $t3, $t1 # t8 = ¿($t3)<($t1)//espacio a alojar? 
 		slt $t9, $t6, $t2 # t9 = ¿($t6)<(limiteDeIteracion) ?
 		and $t8, $t8, $t9 # t8 = ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)?
-		addi $t9, $zero, 1 # t9 = True
-		beq $t8,$t9, _mallocWhile # ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)==True? entonces vuelve al ciclo.
+		beq $t8,1, _mallocWhile # ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)==True? entonces vuelve al ciclo.
 	
 	#Terminamos el ciclo, vemos si pudimos alojar:
 	bne $t3, $t1, _endMalloc #¿ t3 < t1 (espacio contiguo disponible < espacio necesitado) ? Termina con un error 
@@ -128,6 +128,21 @@
 	_endMalloc:	
 
 .end_macro
+
+.macro free($space)
+
+	#Guardamos el tamaño a liberar en t0:
+	add $t0, $zero, $space
+	
+	#Esto es un if:
+	#Revisamos si la posición de memoria ingresada es un head:
+	bge $t0, $zero, perror(-2)
+	blt $t0, $zero, _whileFree
+	
+	
+	
+.end_macro
+
 
 .macro debug.printMalloc($HeadDir)
 	# t1 <- HeadDir 
@@ -189,6 +204,12 @@
 	addi $v0, $zero, 4
 	syscall
 	
+.end_macro
+
+.macro perror($code)
+	sw $t0, $code
+	#seq $t2, $t0, -1
+	beq $t0, -1, print_error_init
 .end_macro
 
 .text
