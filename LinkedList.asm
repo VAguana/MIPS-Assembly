@@ -83,6 +83,8 @@
 	# ¿pos > nelements? No hay nada que eliminar, termina:
 	bgt $t1, $t2, _endDelete
 	
+
+	
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
 	jal first($t0)
 	
@@ -179,9 +181,6 @@
 		
 		bnez $t1, _printWhileT1NotZero
 		
-		
-	
-		
 	#recuperamos lo guardado
 	addi $sp, $sp, 4
 	lw $a0, ($sp)
@@ -197,17 +196,17 @@
 	add $s1, $zero, $v0 # s1: numero nuevo que creamos
 	addi $s2, $zero, 7  
 	sw $s2, 0($v0)      # numero nuevo <- 7
-	#insert($s0,$s1)
+	insert($s0,$s1)
 	malloc(4)
 	add $s1, $zero, $v0 # s1: numero nuevo que creamos
 	addi $s2, $zero, 7  
 	sw $s2, 0($v0)      # numero nuevo <- 7
-	#insert($s0,$s1)	
+	insert($s0,$s1)	
 	malloc(4)
 	add $s1, $zero, $v0
 	addi $s2, $zero, 100
 	sw $s2, 0($v0)
-	#insert($s0,$s1)
+	insert($s0,$s1)
 	
 	print($s0, fun_print)
 	#fun_print()
@@ -217,29 +216,22 @@
 
 
 first:
-	#guardamos: $v0
-	sw $v0, 0($sp)
-	addi $sp,$sp -4
+
+
 	#a0: direccion de la lista cuyo primero queremos obtener
 	lw $v0, 0($a0)
 	
-	#Restauramos:
-	lw $v0, 4($sp)
-	addi $sp, $sp, 4
 	jr $ra
 	#return: la dirección del primer elemento
 
 next:
 	#a0: elemento cuyo siguiente queremos obtener
 	#Guardamos los registros:
-	sw $v0, 0($sp)
-	addi $sp,$sp, -4
+
+	
 	
 	lw $v0, 4($a0)
 	
-	#Restauramos los registros
-	lw $v0, 4($sp)
-	addi $sp, $sp, 4
 	
 	#volvemos
 	jr $ra
