@@ -13,7 +13,7 @@
 	# Una head o una tail tienen valor n+1, donde n es la cantidad de espacio alojado
 	# para ese malloc.
 	
-	
+	error_init: .asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
 
 .macro init($size)
 	#cargamos en a0 la cantidad de espacio que vamos a pedir:
@@ -131,15 +131,35 @@
 
 .macro free($space)
 
-	#Guardamos el tamaño a liberar en t0:
+	#Guardamos la head del segmento a eliminar:
 	add $t0, $zero, $space
 	
+	#Guardamos el límite de iteración:
+	lb $t1, -1($t0)
+	
 	#Esto es un if:
-	#Revisamos si la posición de memoria ingresada es un head:
-	bge $t0, $zero, perror(-2)
-	blt $t0, $zero, _whileFree
+	#Revisamos si la posición de memoria ingresada NO es un head:
+	sle $a0, $t0, 1
+	beq $a0, 1, _perrorFree
 	
+		_perrorFree:
+		addi $a0, $zero, -3
+		j perror
 	
+	#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
+	addi $t3, $zero, 0
+	sb $t3, -1($t0)
+
+	_whileFree:
+		
+		#Comenzamos a eliminar la posición deseada
+		sb $zero, 0($t0)
+		addi $t0, $t0, 1
+		
+		#Resto 1 al contador de espacio
+		subi $t1, $t1, 1
+		
+		bnez $t1, _whileFree
 	
 .end_macro
 
@@ -206,12 +226,6 @@
 	
 .end_macro
 
-.macro perror($code)
-	sw $t0, $code
-	#seq $t2, $t0, -1
-	beq $t0, -1, print_error_init
-.end_macro
-
 .text
 	init(100)
 
@@ -221,5 +235,33 @@
 	
 	debug.printHeap()
 	
+perror:
 	
+	beq $a0, -1, print_error_init
+	beq $a0, -2, print_error_malloc
+	beq $a0, -3, print_error_free
+
+print_error_init:
+	la $a0 error_init
+	li $v0 4
+	syscall
+
+	j end
 	
+print_error_malloc:
+	la $a0 error_malloc
+	li $v0 4
+	syscall
+
+	j end
+
+print_error_free:
+	la $a0 error_free
+	li $v0 4
+	syscall
+
+	j end
+	
+end:
+	li $v0 10
+	syscall
