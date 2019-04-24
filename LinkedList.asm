@@ -3,6 +3,9 @@
 .data
 	space: .asciiz " "	
 .macro create($size)
+
+	#Estructura de la lista:
+	#|4bytes: inicio | 4bytes: fin | 4bytes: numero de elementos |
 	#size es el tamaño de los elementos que van a estar contenidos en la lista 
 	#Primero tenemos que alojar el espacio total que vamos a necesitar para la lista:
 	malloc(12)
@@ -21,6 +24,10 @@
 .macro insert($lista_ptr,$dir)
 	#lista_ptr: apuntador a la lista (realmente la head de la lista)
 	#dir: dirección del elemento a añadir en la lista
+	
+	#Guardamos registros: $v0
+	sw $v0, ($sp)
+	addi $sp, $sp, -4
 	
 	#|4bytes: direccion elemento | 4bytes: siguiente|
 	malloc(8)
@@ -54,7 +61,68 @@
 	_endInsertSucc:
 		addi $t2, $t2, 1
 		sw $t2, 8($t0)
+	#restauramos registros 
+	addi $sp, $sp, 4
+	lw $v0, 0($sp)
 .end_macro	
+
+.macro delete($lista, $pos)
+	#lista: apuntador a la lista cuyo elemento queremos eliminar.
+	#pos: la posicion del elemento en la lista (primero, segundo, tercero...)
+	
+	#Cargamos en t0 la direccion de la lista:
+	add $t0, $zero, $lista #t0: posicion de la lista
+	
+	#cargamos en t1 la posicion del elemento:
+	add $t1, $zero, $pos #t1: posicion EN la lista
+	
+	#Cargamos en t2 el numero de elementos de la lista:
+	lw t2, 8($t0)
+	
+	#Verificamos si hay algo que eliminar:
+	# ¿pos > nelements? No hay nada que eliminar, termina:
+	bgt $t1, $t2, _endDelete
+	
+	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
+	jal first($t0)
+	
+	add $t3, $zero, $v0 #t3: apuntador al primer elemento
+	
+	#Ahora usamos t4 como contador:
+	addi $t4, $zero, 1 #t4: contador
+	
+	#iteramos para encontrar el elemento correcto hasta su posicion anterior
+	_whileT4NotPrev:
+		next($t3)
+		addi $t3, $v0, 0 #t3 = t3.siguiente
+		addi $t4, $zero, 1 #t4 += 1
+		
+		blt $t4, $t1, _whileT4NotPrev
+	#Encontramos el previo del elemento, ahora guardamos su siguiente.
+	next($t3)
+	add $t5, $v0, $zero # t5 = elemento a eliminar
+	#Buscamos el siguiente del elemento a eliminar 
+	next($t5)
+	add $t6, $zero, $v0 # t6 = elementoAEliminar.next
+	
+	#Configuramos el siguiente del previo correctamente:
+	sw $t6, 4($t3) #elemento.prev.next = elemento.next
+	
+	#Cargamos en v0 la dirección del elemento que era direccionado por el nodo eliminado
+	lw $v0, 0($t3)
+	
+	#NOT YET IMPLEMENTED: liberamos el espacio del nodo:
+	#free($t3)
+	
+	
+	
+
+	
+	    
+	
+
+	_endDelete:
+.end_macro
 
 .macro malloc($bytes)
 	add $a0, $zero, $bytes
@@ -64,8 +132,11 @@
 
 .macro fun_print($nodeDir)
 	
-#	FALTA GUARDAR LOS REGISTROS QUE NO SON T
-
+	#Guardamos los registros que vamos a utilizar: a0, v0
+	sw $v0, 0($sp)
+	sw $a0, -4($sp)
+	addi $sp, $sp, -8
+	
 	# nodedir: es la dirección del nodo que vamos a imprimir
 	
 	add $t8, $zero, $nodeDir # t8: nodeDir
@@ -74,12 +145,19 @@
 	addi $v0, $zero, 1
 	syscall
 	
+	#Recuperamos lo que guardamos:
+	lw $a0, 4($sp)
+	lw $v0, 8($sp)
+	addi $sp, $sp, 8
+	
 	
 .end_macro
 
 
 .macro print($lista,$function)
-
+	#Guardamos los registros que usamos:
+	sw $a0, 0($sp)
+	addi $sp, $sp, -4
 	#Guardamos la dirección de lista en t0
 	add $t0, $zero, $lista
 	#En t1 vamos a llevar el siguiente elemento a imprimir, empezamos con el primero:
@@ -104,6 +182,9 @@
 		
 	
 		
+	#recuperamos lo guardado
+	addi $sp, $sp, 4
+	lw $a0, ($sp)
 	_endPrint:		
 	#return: dirección del nodo siguiente al nodo dado. 
 .end_macro
@@ -116,17 +197,17 @@
 	add $s1, $zero, $v0 # s1: numero nuevo que creamos
 	addi $s2, $zero, 7  
 	sw $s2, 0($v0)      # numero nuevo <- 7
-	insert($s0,$s1)
+	#insert($s0,$s1)
 	malloc(4)
 	add $s1, $zero, $v0 # s1: numero nuevo que creamos
 	addi $s2, $zero, 7  
 	sw $s2, 0($v0)      # numero nuevo <- 7
-	insert($s0,$s1)	
+	#insert($s0,$s1)	
 	malloc(4)
 	add $s1, $zero, $v0
 	addi $s2, $zero, 100
 	sw $s2, 0($v0)
-	insert($s0,$s1)
+	#insert($s0,$s1)
 	
 	print($s0, fun_print)
 	#fun_print()
@@ -136,14 +217,31 @@
 
 
 first:
+	#guardamos: $v0
+	sw $v0, 0($sp)
+	addi $sp,$sp -4
 	#a0: direccion de la lista cuyo primero queremos obtener
 	lw $v0, 0($a0)
+	
+	#Restauramos:
+	lw $v0, 4($sp)
+	addi $sp, $sp, 4
 	jr $ra
 	#return: la dirección del primer elemento
 
 next:
 	#a0: elemento cuyo siguiente queremos obtener
+	#Guardamos los registros:
+	sw $v0, 0($sp)
+	addi $sp,$sp, -4
+	
 	lw $v0, 4($a0)
+	
+	#Restauramos los registros
+	lw $v0, 4($sp)
+	addi $sp, $sp, 4
+	
+	#volvemos
 	jr $ra
 
 end:
