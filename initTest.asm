@@ -125,7 +125,8 @@
 		sb $t0, -0($t7) 
 		
 	
-	_endMalloc:	
+	_endMalloc:
+		
 
 .end_macro
 
@@ -236,7 +237,6 @@
 	debug.printHeap()
 	
 perror:
-	
 	beq $a0, -1, print_error_init
 	beq $a0, -2, print_error_malloc
 	beq $a0, -3, print_error_free
@@ -246,12 +246,16 @@ print_error_init:
 	li $v0 4
 	syscall
 
+	li $v0 -1
+
 	j end
 	
 print_error_malloc:
 	la $a0 error_malloc
 	li $v0 4
 	syscall
+	
+	li $v0 -2
 
 	j end
 
@@ -259,6 +263,8 @@ print_error_free:
 	la $a0 error_free
 	li $v0 4
 	syscall
+
+	li $v0 -3
 
 	j end
 	
