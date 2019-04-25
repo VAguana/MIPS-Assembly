@@ -269,5 +269,11 @@ print_error_free:
 	j end
 	
 end:
+	sw $v0, 0($sp)
+	addi $sp, $sp, -4
+	
 	li $v0 10
 	syscall
+	
+	addi $sp, $sp, 4
+	lw $v0, 0($sp)
