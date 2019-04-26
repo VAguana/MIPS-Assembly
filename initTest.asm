@@ -159,6 +159,9 @@
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
+	sw $a0, 0($sp)
+	addi $sp, $sp, -4
+	
 	sle $a0, $t1, 1
 	beq $a0, 1, _perrorFree
 	bne $a0, 1, _deleteHead
@@ -187,6 +190,9 @@
 		li $v0 1
 	
 	_endFree:
+		#Regreso a $a0 a su valor inicial antes de culminar la funcion
+		addi $sp, $sp, 4
+		lw $s0, 0($sp)
 	
 .end_macro
 
