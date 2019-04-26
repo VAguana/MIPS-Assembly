@@ -1,0 +1,18 @@
+#.include "testLinkedList.asm"
+
+
+.text
+	#Probamos init: pedimos 200
+	addi $a0, $zero, 200
+	jal init
+	
+	#Probamos malloc: pedimos 21
+	addi $a0, $zero, 501
+	jal malloc
+
+	jal Debug.PrintHeap
+	
+	addi $v0, $zero, 10
+	syscall
+	
+.include "testMalloc.asm"
