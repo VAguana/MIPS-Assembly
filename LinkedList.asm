@@ -17,6 +17,10 @@
 	
 	# numero de elementos: Cantidad de elementos actualmente insertados en la lista.
 	
+	### RETURN ###
+	
+	# La dirección donde se alojó la lista
+	
 	### Implementacion ###
 	
 	# Se alojan 12 bytes de espacio; 4 para el valor del atributo "inicio", 4 para el valor del atributo "fin"
