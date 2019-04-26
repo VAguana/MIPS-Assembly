@@ -36,6 +36,7 @@
 	_perrorInit:
 		li $a0 -1
 		j perror
+		j _endInit
 	
 	_initSuccess:
 		#Guardamos el inicio de la memoria
@@ -119,6 +120,7 @@
 	_perrorMalloc:
 		li $a0 -2
 		j perror
+		j _endMalloc
 	
 	_allocate:
 		#Configuramos el head:
