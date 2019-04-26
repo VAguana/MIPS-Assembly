@@ -4,6 +4,7 @@
 .data
 	space: .asciiz " "
 	endln: .asciiz "\n"
+	error_delete: .asciiz "Error. No se pueden eliminar elementos que no se encuentren en la lista"
 	
 .macro newNumber($number)
 
@@ -151,8 +152,16 @@
 	
 	#Verificamos si hay algo que eliminar:
 	# ¿pos > nelements? No hay nada que eliminar, termina:
-	bgt $t1, $t2, _endDelete
+	bgt $t1, $t2, _perrorDelete
+	blt $t1, 0, _perrorDelete
+	ble $t1, $t2, _successDelete
 	
+	_perrorDelete:
+	li $a0 -4
+	j perror_list
+	j _endDelete
+	
+	_successDelete:
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
 	add $a0, $zero, $t0
 	jal first
@@ -327,6 +336,18 @@
 	#return: dirección del nodo siguiente al nodo dado. 
 .end_macro
 
+perror_list:
+	beq $a0, -4, print_error_delete
+
+print_error_delete:
+	la $a0 error_delete
+	li $v0 4
+	syscall
+
+	li $v0 -4
+
+	jr $ra
+
 .text
 	#Creamos una lista
 	create()
@@ -400,11 +421,6 @@ next:
 		
 	#volvemos
 	jr $ra
-
-
-end:
-	li $v0 10
-	syscall
 
 #push:
      #Template para empilar registros. NO ES UNA FUNCIÓN.

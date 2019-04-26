@@ -31,6 +31,7 @@ init:
 	lw $ra, 0($sp)
 	#volvemos
 	jr $ra
+
 .globl init
 
 

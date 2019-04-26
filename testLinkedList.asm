@@ -134,7 +134,7 @@
 	### --- ###
 	
 	#Cargamos en t0 la direccion de la lista:
-	add $t0, $zero, $lista #t0: posicion de la lista
+	add $t0, $zero, $lista #t0: direccion de la lista
 	
 	#cargamos en t1 la posicion del elemento:
 	add $t1, $zero, $pos #t1: posicion EN la lista
@@ -224,6 +224,7 @@
 	add $v0, $zero, $v1
 
 	_endDelete:
+	
 .end_macro
 
 
