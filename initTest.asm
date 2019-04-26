@@ -274,7 +274,7 @@ print_error_init:
 
 	li $v0 -1
 
-	#j _endInit
+	jr $ra
 	
 print_error_malloc:
 	la $a0 error_malloc
@@ -283,7 +283,7 @@ print_error_malloc:
 	
 	li $v0 -2
 
-	#j _endMalloc
+	jr $ra
 
 print_error_free:
 	la $a0 error_free
@@ -292,5 +292,5 @@ print_error_free:
 
 	li $v0 -3
 
-	#j _endFree
+	jr $ra
 
