@@ -37,12 +37,34 @@ init:
 .macro malloc_util($size)
 	#guardamos el tamaño a alojar  en t0:
 	add $t0, $zero, $size
+	div $t0, $t0, 4
 	#A continuación, vamos a buscar el espacio donde alojar:
-	#Guardamos en t1 el tamaño que tenemos que buscar (es size+2 por la head y la tail):
-	addi $t1, $t0, 2
+	#Guardamos en t1 el la cantidad de palabras que tenemos que buscar (es size/4 si size es 
+	# divisible entre 4, o size // 2 + 1 si no lo es.):
+	addi $a0, $t0, 0
+	addi $a1, $zero, 4
+	
+	jal mod #v0 := size mod 4
+	
+	
+	#¿size mod  4 != 0? vamos a la segunda etiqueta
+	bnez $v0, _ifSizeMod4NotEqZero
+	_ifSizeMod4EqZero:
+		#La cantidad de palabras a alojar es size/4
+		div $t1, $t0, 4
+		j _endIfSizeMod4
+		
+	_ifSizeMod4NotEqZero:
+		#La cantidad de palabras a alojar es size/4 + 1
+		div $t1, $t0, 4
+		addi $t1, $t1, 1 			
+	_endIfSizeMod4:
+	#t1: cantidad de bytes a alojar
+	addi $t1, $t1, 2 # +2 por la head y la tail
 	
 	#Ahora guardamos en t2 el límite de iteración. Vamos a iterar hasta: availableSpace - size - 1
 	lw $t2, availableSpace
+	div $t2, $t2, 4 #t2 := cantidad de bytes disponibles
 	sub $t2,$t2,$t1
 	#Como t1 es size + 2, tenemos que sumar 1 para que sea size + 1
 	addi $t2, $t2, 1
@@ -60,7 +82,7 @@ init:
 	_mallocWhile:
 		#Esto es un if:
 		#Cargamos en t5 el contenido de la t4-esima posición
-		lb $t5, -0($t4)
+		lw $t5, -0($t4)
 		beq $t5,$zero,_keepCounting
 		bne $t5,$zero,_jumpToNext
 		
@@ -77,7 +99,7 @@ init:
 			
 			#Movemos la posición del arreglo hasta 1 más de la posición de la tail
 			add $t4, $t4, $t5
-			addi $t4, $t4, 1
+			addi $t4, $t4, 4
 			
 			#configuramos el candidato a posición de malloc t7 como el tail+1
 			move $t7, $t4
@@ -89,7 +111,7 @@ init:
 			addi $t6, $t6, 1
 			
 			#movemos el apuntador a la dirección de memoria:
-			addi $t4, $t4, 1
+			addi $t4, $t4, 4
 			j _endMallocIf0
 			
 		_endMallocIf0:
@@ -111,24 +133,24 @@ init:
 	
 	_allocate:
 		#Configuramos el head:
-		addi $t0, $t0, 1
-		sb $t0, -0($t7)
+		subi $t1, $t1, 1 # t1: cantidad de bytes disponibles + 1
+		sw $t1, -0($t7)
 		addi $t3, $zero, 1 # t3 será nuestra variable de iteración.
-		add $t7, $t7, $t3 #El ciclo empieza en head + 1
+		addi $t7, $t7,4 #El ciclo empieza en head + 1
 		add $v0, $zero, $t7 #hacemos "return t7", dado que en t7 está la posición de la memoria donde empieza		
-		addi $t8, $zero, 1 #El número que vamos a guardar en cada casilla
+		addi $t8, $zero, 16843009 #El número que vamos a guardar en cada casilla
 		
 		_allocateWhile:
-			sb $t8, -0($t7)
+			sw $t8, -0($t7)
 			addi $t3, $t3, 1 #aumentamos la variable de iteración
-			addi $t7, $t7, 1 #movemos la posición donde estamos alojando.
+			addi $t7, $t7, 4 #movemos la posición donde estamos alojando.
 			
-			sle $t6, $t3, $size # t6 := t3 <= $size (espacio alojado <= espacio a alojar)
-			beq $t6, $t8, _allocateWhile # ¿(espacio alojado <= espacio a alojar)==True? Entonces vuelve al ciclo
+			sle $t6, $t3, $t0 # t6 := t3 <= $size (espacio alojado <= espacio a alojar)
+			beq $t6, 1, _allocateWhile # ¿(espacio alojado <= espacio a alojar)==True? Entonces vuelve al ciclo
 		
 		#Salimos del ciclo, vamos a configurar la tail:
 		sub $t0, $zero, $t0
-		sb $t0, -0($t7)
+		sw $t0, -0($t7)
 		
 		#Si el malloc fue exitoso, devuelve 1 en $v0
 		#li $v0 1
@@ -252,6 +274,20 @@ init:
 	syscall
 	
 .end_macro
+
+
+mod:
+	#return: a0 mod a1
+	div $v0, $a0, $a1 #v0 := a0 // a1
+	
+	mul  $v0, $v0, $a1 #v0 := v0*a1
+	
+	sub $v0, $a0, $v0  #v0 := a0 - v0
+	
+	jr $ra
+	
+	
+
 
 free:
 	#a0: direccion a liberar
