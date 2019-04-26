@@ -14,20 +14,35 @@
 	# para ese malloc.
 	
 	error_init: .asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
+	error_malloc: .asciiz "Error. No hay espacio suficiendo en memoria para alojas la cantidad solicitada"
+	error_free: .asciiz "Error. La dirección ingresada con un un head"
 
 .macro init($size)
 	#cargamos en a0 la cantidad de espacio que vamos a pedir:
 	add $a0, $zero, $size
 
-	addi $v0, $zero, 9 #Cargamos la instrucción 9
+	li $v0 9 #Cargamos la instrucción 9
 	syscall
 	
 	#guardamos el espacio pedido
 	add $t0, $zero, $size
 	sw $t0, availableSpace
 	sw $t0, heapSize	
-	#Guardamos el inicio de la memoria
-	sw $v0 initHead
+	
+	#Verificamos que el init sea menor a 500 (tamaño heap virtual)
+	bgt $t0, 500, _perrorInit
+	ble $t0, 500, _initSuccess
+	
+	_perrorInit:
+		li $a0 -1
+		j perror
+	
+	_initSuccess:
+		#Guardamos el inicio de la memoria
+		sw $v0 initHead
+	
+	_endInit:
+	
 .end_macro
 
 .macro malloc($size)
@@ -52,9 +67,6 @@
 	
 	#En t7 está el candidato a posible posición de malloc
 	move $t7, $t4
-	
- 
-	
 	
 	_mallocWhile:
 		#Esto es un if:
@@ -101,7 +113,12 @@
 		beq $t8,1, _mallocWhile # ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)==True? entonces vuelve al ciclo.
 	
 	#Terminamos el ciclo, vemos si pudimos alojar:
-	bne $t3, $t1, _endMalloc #¿ t3 < t1 (espacio contiguo disponible < espacio necesitado) ? Termina con un error 
+	bne $t3, $t1, _perrorMalloc #¿ t3 < t1 (espacio contiguo disponible < espacio necesitado) ? Termina con un error 
+	bge $t3, $t1, _allocate
+	
+	_perrorMalloc:
+		li $a0 -2
+		j perror
 	
 	_allocate:
 		#Configuramos el head:
@@ -122,9 +139,11 @@
 		
 		#Salimos del ciclo, vamos a configurar la tail:
 		sub $t0, $zero, $t0
-		sb $t0, -0($t7) 
+		sb $t0, -0($t7)
 		
-	
+		#Si el malloc fue exitoso, devuelve 1 en $v0
+		li $v0 1
+		
 	_endMalloc:
 		
 
@@ -140,16 +159,18 @@
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
-	sle $a0, $t0, 1
+	sle $a0, $t1, 1
 	beq $a0, 1, _perrorFree
+	bne $a0, 1, _deleteHead
 	
-		_perrorFree:
-		addi $a0, $zero, -3
+	_perrorFree:
+		li $a0 -3
 		j perror
 	
-	#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
-	addi $t3, $zero, 0
-	sb $t3, -1($t0)
+	_deleteHead:
+		#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
+		addi $t3, $zero, 0
+		sb $t3, -1($t0)
 
 	_whileFree:
 		
@@ -161,6 +182,11 @@
 		subi $t1, $t1, 1
 		
 		bnez $t1, _whileFree
+		
+		#Si el free fue exitoso, devuelve 1 en $v0
+		li $v0 1
+	
+	_endFree:
 	
 .end_macro
 
@@ -248,7 +274,7 @@ print_error_init:
 
 	li $v0 -1
 
-	j end
+	#j _endInit
 	
 print_error_malloc:
 	la $a0 error_malloc
@@ -257,7 +283,7 @@ print_error_malloc:
 	
 	li $v0 -2
 
-	j end
+	#j _endMalloc
 
 print_error_free:
 	la $a0 error_free
@@ -266,14 +292,5 @@ print_error_free:
 
 	li $v0 -3
 
-	j end
-	
-end:
-	sw $v0, 0($sp)
-	addi $sp, $sp, -4
-	
-	li $v0 10
-	syscall
-	
-	addi $sp, $sp, 4
-	lw $v0, 0($sp)
+	#j _endFree
+
