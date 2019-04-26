@@ -1,7 +1,18 @@
 #Vamos a definir una linked list:
 
+
 .data
-	space: .asciiz " "	
+	space: .asciiz " "
+	endln: .asciiz "\n"
+	
+.macro newNumber($number)
+
+	add $t0, $zero, $number
+	malloc(4)
+	sw $t0, 0($v0)
+
+.end_macro
+	
 .macro create()
 	### DESCRIPCION ###
 	# Instancia una lista y devuelve la posicion de memoria donde está la cabeza de esa lista
@@ -70,18 +81,16 @@
 	# Si es el primero en ser añadido entonces también se define como head,y en este caso tampoco hay tail
 	# asi que se asigna directamente sin ser el siguiente de ningún otro nodo.
 	
-	### --- ###
-	
-	#Guardamos registros: $v0
-	sw $v0, ($sp)
-	addi $sp, $sp, -4
-	
+	### --- ###	
 
-	malloc(8)
+
 	# Guardamos nuestros datos:
 	add $t0, $zero, $lista_ptr # t0: apuntador a la lista 
 	add $t1, $zero, $dir       # t1: direccion del elemento a añadir
 	lw $t3, 8($t0)		   # t3: numero de elementos en la lista
+	
+	#Creamos el espacio del nodo:
+	malloc(8)	
 	
 	#Ahora configuramos las posiciones correspondientes en las posiciones correspondientes
 	sw $t1, 0($v0)
@@ -108,14 +117,28 @@
 	_endInsertSucc:
 		addi $t2, $t2, 1
 		sw $t2, 8($t0)
-	#restauramos registros 
-	addi $sp, $sp, 4
-	lw $v0, 0($sp)
+	
 .end_macro	
 
 .macro delete($lista, $pos)
-	#lista: apuntador a la lista cuyo elemento queremos eliminar.
-	#pos: la posicion del elemento en la lista (primero, segundo, tercero...)
+
+	### ENTRADA ###
+	# lista: apuntador a la lista cuyo elemento queremos eliminar.
+	# pos: la posicion del elemento en la lista (primero, segundo, tercero...)
+	
+	### SALIDA ###
+	# La direccion del elemento que fue eliminado de 
+	
+	### IMPELEMENTACION ###
+	
+	# Se implementa la eliminacion usual de las listas enlazadas.
+	# Se consideran varios casos bordes: en el caso donde se pide una
+	# posicion que excede el tamaño de la lista, el programa genera un error.
+	# En el caso donde se elimina el único elemento de la lista, esta se vacía.
+	# en el caso donde se elimina el primero o el último de la lista, estos 
+	# atributos son actualizados en la head de la lista.
+	
+	### --- ###
 	
 	#Cargamos en t0 la direccion de la lista:
 	add $t0, $zero, $lista #t0: posicion de la lista
@@ -124,73 +147,88 @@
 	add $t1, $zero, $pos #t1: posicion EN la lista
 	
 	#Cargamos en t2 el numero de elementos de la lista:
-	lw t2, 8($t0) #t2: numero de elementos:
+	lw $t2, 8($t0) #t2: numero de elementos:
 	
 	#Verificamos si hay algo que eliminar:
 	# ¿pos > nelements? No hay nada que eliminar, termina:
 	bgt $t1, $t2, _endDelete
 	
-	
-
-	
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
-	jal first($t0)
+	add $a0, $zero, $t0
+	jal first
 	
 	add $t3, $zero, $v0 #t3: apuntador al primer elemento
 	
-	# Revisamos si solo 
+	# Ahora verificamos si el elemento a eliminar es el unico elemento de la lista:
+	addi $t8, $zero, 1
 	
-	
+	# ¿numero de elementos NO  es igual a 1? saltamos el if.
+	bne $t2,$t8, _endIfNumElemnEqOne
+	_ifNumElemnEqOne:
+		sw $zero, 0($t0) #Quitamos el inicio
+		sw $zero, 4($t0) #Quitamos  el fin
+		
+		lw $v0, 0($t3)   #Retornamos la posicion del elemento direccionado
+		#free($t3)       #Liberamos el espacio ocupado por el nodo.
+		j _endDelete	 #Terminamos
+	_endIfNumElemnEqOne:
+	 
+	 
 	#Ahora usamos t4 como contador:
 	addi $t4, $zero, 1 #t4: contador
 	
 	#iteramos para encontrar el elemento correcto hasta su posicion anterior
-	_whileT4NotPrev:
-		next($t3)
+	subi $t1, $t1, 1
+	_whileT4NotPrev:	
+		bge $t4, $t1, _endWhileT4NotPrev
+		add $a0, $zero, $t3 
+		jal next 	#next(t3)
 		addi $t3, $v0, 0 #t3 = t3.siguiente
-		addi $t4, $zero, 1 #t4 += 1
-		
+		addi $t4, $t4, 1 #t4 += 1
 		blt $t4, $t1, _whileT4NotPrev
+	_endWhileT4NotPrev:		
+	addi $t1, $t1, 1
+	
+	
 	#Encontramos el previo del elemento, ahora guardamos su siguiente.
-	next($t3)
-	add $t5, $v0, $zero # t5 = elemento a eliminar
+	add $a0, $zero, $t3 
+	jal next
+	add $t5, $v0, $zero # t5: elemento a eliminar (t3.next)
+	
+	# Vemos si tenemos que cambiar la head:
+	addi $t8, $zero, 1
+	bne $t1, $t8, _endIfPosEqOne # ¿pos != 1? salta el if
+	_IfPosEqOne:
+		sw $t5, 0($t0)
+		#Falta saltar a la parte donde hacemos return
+		#Retornamos la posicion direccionada por t3:
+		lw $v0, 0($t3)
+		#free($t3)
+		j _endDelete
+	_endIfPosEqOne:
+	
+	#Vemos si tenemos que cambiar el "fin" de la lista:
+	bne $t1, $t2, _ifPosEqLast # ¿pos != 1? salta el if
+	_ifPosEqLast:
+		sw $t3, 4($t0)
+	_endIfPosEqLast:
+	
 	#Buscamos el siguiente del elemento a eliminar 
-	next($t5)
+	add $a0, $zero, $t5 
+	jal next
 	add $t6, $zero, $v0 # t6 = elementoAEliminar.next
 	
 	#Configuramos el siguiente del previo correctamente:
 	sw $t6, 4($t3) #elemento.prev.next = elemento.next
 	
-	# CASOS BORDES:
-	# Cuando el elemento es el último.
 	
-	#Esto es un if: ¿numero elementos == posicion? Hay que actualizar la tail.
-	beq $t1, $t2 _SetTail
-	bne $t1, $t2 _EndSetTail
-	_SetTail:
-		sw $t3, 4($t0)
-	_EndSetTail:
-	
-	add $t7, $zero, 1 # t7 := 1
-	beq $t7, $t1, _SetHead
-	bne $t7, $t1, _EndSetHead
-	_SetHead:
-		sw $t3, 0($t0)
-	_EndSetHead:	
-	
-	
-	#Cargamos en v0 la dirección del elemento que era direccionado por el nodo eliminado
-	lw $v0, 0($t3)
+	#Cargamos en v1 la dirección del elemento que era direccionado por el nodo eliminado
+	lw $v1, 0($t5)
 	
 	#NOT YET IMPLEMENTED: liberamos el espacio del nodo:
 	#free($t3)
 	
-	
-	
-
-	
-	    
-	
+	add $v0, $zero, $v1
 
 	_endDelete:
 .end_macro
@@ -263,6 +301,7 @@
 	add $t1, $zero, $v0 #t1: primer elemento
 	
 	_printWhileT1NotZero:
+
 		beqz $t1, _endPrint
 		$function($t1)
 		#Incrementamos t1:
@@ -273,9 +312,14 @@
 		la $a0, space
 		addi $v0, $zero, 4
 		syscall
-		
-		bnez $t1, _printWhileT1NotZero
-		
+		bnez $t1, _printWhileT1NotZero			
+
+	
+	#Imprimimos un salto de linea
+	la $a0, endln
+	addi $v0, $zero, 4
+	syscall 
+	
 	#recuperamos lo guardado
 	addi $sp, $sp, 4
 	lw $a0, ($sp)
@@ -285,25 +329,29 @@
 
 .text
 	#Creamos una lista
-	create(8)
-	add $s0, $zero, $v0 # s0: lista
-	malloc(4) 	    # alojamos espacio para un numero	
-	add $s1, $zero, $v0 # s1: numero nuevo que creamos
-	addi $s2, $zero, 7  
-	sw $s2, 0($v0)      # numero nuevo <- 7
-	insert($s0,$s1)
-	malloc(4)
-	add $s1, $zero, $v0 # s1: numero nuevo que creamos
-	addi $s2, $zero, 7  
-	sw $s2, 0($v0)      # numero nuevo <- 7
-	insert($s0,$s1)	
-	malloc(4)
-	add $s1, $zero, $v0
-	addi $s2, $zero, 100
-	sw $s2, 0($v0)
-	insert($s0,$s1)
+	create()
+	addi $a1, $v0, 0
 	
-	print($s0, fun_print)
+	newNumber(1)
+	insert($a1,$v0)
+	
+	newNumber(2)
+	insert($a1,$v0)
+	
+	newNumber(3)
+	insert($a1,$v0)
+	
+	newNumber(4)
+	insert($a1,$v0)
+	
+	newNumber(5)
+	insert($a1,$v0)
+	print($a1, fun_print)
+	
+	delete($a1,5)
+	delete($a1,1)
+
+	print($a1, fun_print)
 	#fun_print()
 	
 	j end
@@ -352,6 +400,7 @@ next:
 		
 	#volvemos
 	jr $ra
+
 
 end:
 	li $v0 10
