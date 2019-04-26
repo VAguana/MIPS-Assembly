@@ -2,11 +2,29 @@
 
 .data
 	space: .asciiz " "	
-.macro create($size)
+.macro create()
+	### DESCRIPCION ###
+	# Instancia una lista y devuelve la posicion de memoria donde está la cabeza de esa lista
 
-	#Estructura de la lista:
+	### Estructura de la lista ###
 	#|4bytes: inicio | 4bytes: fin | 4bytes: numero de elementos |
-	#size es el tamaño de los elementos que van a estar contenidos en la lista 
+	
+	### ATRIBUTOS ###
+	# inicio: dirección donde se encuentra el primer nodo de la lista.
+	
+	# fin: dirección donde se encuentra el último nodo de la lista. Cuando fin == inicio == 0x0
+	#      es porque no existen nodos en la lista.
+	
+	# numero de elementos: Cantidad de elementos actualmente insertados en la lista.
+	
+	### Implementacion ###
+	
+	# Se alojan 12 bytes de espacio; 4 para el valor del atributo "inicio", 4 para el valor del atributo "fin"
+	# y 4 para el número de elementos. "Inicio" y "fin" empiezan valiendo 0x0 originalmente, y el número 
+	# de elementos empieza en 0.
+	
+	### --- ###
+	
 	#Primero tenemos que alojar el espacio total que vamos a necesitar para la lista:
 	malloc(12)
 
@@ -22,14 +40,39 @@
 .end_macro
 
 .macro insert($lista_ptr,$dir)
+	### DESCRIPCION ###
+	# Dada una lista, inserta el elemento cuya direccion es "dir" en la lista
+	
+	### ENTRADA ###
+	
 	#lista_ptr: apuntador a la lista (realmente la head de la lista)
+	
 	#dir: dirección del elemento a añadir en la lista
+	
+	### ESTRUCTURA DE UN NODO ###
+	# |4bytes: direccion elemento | 4bytes: siguiente|
+	
+	### ATRIBUTOS DE UN NODO ###
+	# direccion elemento: direccion en la memoria donde se encuentra el elemento 
+	#		      correspondiente con este nodo.
+	
+	# siguiente: dirección del siguiente nodo en la lista. Si el valor de siguiente es 0x0, 
+	#            entonces no tiene siguiente y por lo tanto este nodo es la tail (final) de la lista.
+	
+	### IMPLEMENTACIÓN ### 
+	
+	# Se instancia el nodo en cuestion utilizando un malloc(8) y luego asignando el contenido
+	# de sus bytes como se indica en la estructura. Este nodo se asigna como siguiente del nodo "final".
+	# Si es el primero en ser añadido entonces también se define como head,y en este caso tampoco hay tail
+	# asi que se asigna directamente sin ser el siguiente de ningún otro nodo.
+	
+	### --- ###
 	
 	#Guardamos registros: $v0
 	sw $v0, ($sp)
 	addi $sp, $sp, -4
 	
-	#|4bytes: direccion elemento | 4bytes: siguiente|
+
 	malloc(8)
 	# Guardamos nuestros datos:
 	add $t0, $zero, $lista_ptr # t0: apuntador a la lista 
@@ -77,11 +120,12 @@
 	add $t1, $zero, $pos #t1: posicion EN la lista
 	
 	#Cargamos en t2 el numero de elementos de la lista:
-	lw t2, 8($t0)
+	lw t2, 8($t0) #t2: numero de elementos:
 	
 	#Verificamos si hay algo que eliminar:
 	# ¿pos > nelements? No hay nada que eliminar, termina:
 	bgt $t1, $t2, _endDelete
+	
 	
 
 	
@@ -89,6 +133,9 @@
 	jal first($t0)
 	
 	add $t3, $zero, $v0 #t3: apuntador al primer elemento
+	
+	# Revisamos si solo 
+	
 	
 	#Ahora usamos t4 como contador:
 	addi $t4, $zero, 1 #t4: contador
@@ -109,6 +156,24 @@
 	
 	#Configuramos el siguiente del previo correctamente:
 	sw $t6, 4($t3) #elemento.prev.next = elemento.next
+	
+	# CASOS BORDES:
+	# Cuando el elemento es el último.
+	
+	#Esto es un if: ¿numero elementos == posicion? Hay que actualizar la tail.
+	beq $t1, $t2 _SetTail
+	bne $t1, $t2 _EndSetTail
+	_SetTail:
+		sw $t3, 4($t0)
+	_EndSetTail:
+	
+	add $t7, $zero, 1 # t7 := 1
+	beq $t7, $t1, _SetHead
+	bne $t7, $t1, _EndSetHead
+	_SetHead:
+		sw $t3, 0($t0)
+	_EndSetHead:	
+	
 	
 	#Cargamos en v0 la dirección del elemento que era direccionado por el nodo eliminado
 	lw $v0, 0($t3)
@@ -133,6 +198,19 @@
 .end_macro
 
 .macro fun_print($nodeDir)
+	### DESCRIPCION ###
+	# Utilidad auxiliar para imprimir enteros en una lista enlazada.
+	
+	### ENTRADA ###
+	# nodeDir: direccion del nodo que queremos imprimir
+	
+	### IMPLEMENTACION ###
+	# Se carga la direccion almacenada en el nodo, y luego el contenido en esa direccion en a0 y 
+	# se imprime.
+	
+	### --- ###
+	
+	
 	
 	#Guardamos los registros que vamos a utilizar: a0, v0
 	sw $v0, 0($sp)
@@ -157,6 +235,19 @@
 
 
 .macro print($lista,$function)
+	### ENTRADA ###
+	# lista: La direccion de la cabeza de la lista cuyo contenido queremos imprimir
+	
+	# function: funcion utilizada para imprimir un nodo. Necesitamos diferentes 
+	#	 funciones dependiendo del tipo de la lista porque el tipo de dato que almacena esta lista
+	# 	 cambia el método de representación.
+	
+	### Implementacion ###
+	# Se guarda una variable con la direccion del  siguiente elemento a imprimir, y mientras esta direccion
+	# sea distinta de 0x0, se llama a la funcion de impresion "function" sobre esa direccion, luego se imprime
+	# un espacio.
+	
+	### --- ###
 	#Guardamos los registros que usamos:
 	sw $a0, 0($sp)
 	addi $sp, $sp, -4
@@ -216,23 +307,45 @@
 
 
 first:
-
-
+	### DESCRIPCION ###
+	# dada la direccion de una lista, imprime el "inicio" de esa lista. (La direccion del primer nodo)
+	
+	### ENTRADA ###
 	#a0: direccion de la lista cuyo primero queremos obtener
+	
+	### SALIDA ###
+	# en v0 se retorna la direccion del primer elemento
+	
+	### IMPLEMENTACION ###
+	# Se carga en v0 la palabra ubicada en la direccion contenida por a0
+	
+	###---###
+	
 	lw $v0, 0($a0)
 	
 	jr $ra
 	#return: la dirección del primer elemento
 
 next:
-	#a0: elemento cuyo siguiente queremos obtener
-	#Guardamos los registros:
 
+	### DESCRIPCION ###
+	# dada la direccion de una lista, imprime el "fin" de esa lista. (La direccion del ultimo nodo)
 	
+	### ENTRADA ###
+	#a0: direccion de la lista cuyo final queremos obtener
+	
+	### SALIDA ###
+	# en v0 se retorna la direccion del ultimo elemento
+	
+	### IMPLEMENTACION ###
+	# Se carga en v0 la palabra ubicada en la direccion (a0) + 4 
+	
+	###---###
+
+	#Guardamos los registros:
 	
 	lw $v0, 4($a0)
-	
-	
+		
 	#volvemos
 	jr $ra
 
