@@ -19,6 +19,7 @@ init:
 	_perrorInit:
 		li $a0 -1
 		jal perror
+		j _endInit
 	
 	_initSuccess:
 		#Guardamos el inicio de la memoria
@@ -133,9 +134,14 @@ init:
 	
 	#Verificamos si pudimos encontrar una posicion válida:
 	beq $t3, $t1, _endNotEnoughMem
+	
 	_NotEnoughMem:
+		li $a0 -2
+		jal perror
 		j _endMalloc
+	
 	_endNotEnoughMem:
+	
 	#Alojamos memoria:
 	subi $t1, $t1, 1   #t1 = words + 1
 	sw $t1, 0($t2)     #asignamos el valor de la head correctamente
@@ -178,9 +184,6 @@ init:
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
-	sw $a0, 0($sp)
-	addi $sp, $sp, -4
-	
 	sle $a0, $t1, 1
 	beq $a0, 1, _perrorFree
 	bne $a0, 1, _deleteHead
@@ -188,6 +191,7 @@ init:
 	_perrorFree:
 		li $a0 -3
 		jal perror
+		j _endFree
 	
 	_deleteHead:
 		#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
@@ -209,9 +213,6 @@ init:
 		li $v0 1
 
 	_endFree:
-		#Regreso a $a0 a su valor inicial antes de culminar la funcion
-		addi $sp, $sp, 4
-		lw $s0, 0($sp)
 	
 .end_macro
 
@@ -287,13 +288,11 @@ mod:
 	#return: a0 mod a1
 	div $v0, $a0, $a1 #v0 := a0 // a1
 	
-	mul  $v0, $v0, $a1 #v0 := v0*a1
+	mul $v0, $v0, $a1 #v0 := v0*a1
 	
 	sub $v0, $a0, $v0  #v0 := a0 - v0
 	
 	jr $ra
-	
-	
 
 
 free:
@@ -323,9 +322,10 @@ malloc:
 	#guardamos:
 	sw $ra, 0($sp)
 	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
 	sw $a1, 0($sp)
 	subi $sp, $sp, 4
-	
 	
 	#alojamos:
 	malloc_utilv2($a0)
@@ -334,15 +334,18 @@ malloc:
 	addi $sp, $sp, 4
 	lw $a1, 0($sp)	
 	addi $sp, $sp, 4
-	lw $ra, 0($sp)	
+	lw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)
 	
 	#volvemos:
-	jr $ra
-	
+	jr $ra	
+			
 perror:
 	beq $a0, -1, print_error_init
 	beq $a0, -2, print_error_malloc
 	beq $a0, -3, print_error_free
+	beq $a0, -4, print_error_delete
 
 print_error_init:
 	la $a0 error_init
@@ -370,6 +373,15 @@ print_error_free:
 	li $v0 -3
 
 	jr $ra
+	
+print_error_delete:
+	la $a0 error_delete
+	li $v0 4
+	syscall
+
+	li $v0 -4
+
+	jr $ra
 
 .data 
 	
@@ -390,6 +402,7 @@ print_error_free:
 	# para ese malloc.
 	
 	error_init: .asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
-	error_malloc: .asciiz "Error. No hay espacio suficiendo en memoria para alojas la cantidad solicitada"
+	error_malloc: .asciiz "Error. No hay espacio suficiendo en memoria para alojar la cantidad solicitada"
 	error_free: .asciiz "Error. La dirección ingresada con un un head"
-	.globl availableSpace, initHead,debugStr, heapSize, error_init, error_malloc, error_free, space, endln
+	error_delete: .asciiz "Error. El elemento no se encuentra en la lista"
+	.globl availableSpace, initHead,debugStr, heapSize, error_init, error_malloc, error_free, error_delete, space, endln

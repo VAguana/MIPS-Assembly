@@ -172,8 +172,15 @@
 	lw $t2, 8($t0) #t2: numero de elementos:
 	
 	#Verificamos si hay algo que eliminar:
-	# ¿pos > nelements? No hay nada que eliminar, termina:
-	bgt $t1, $t2, _endDelete
+	# ¿pos > nelements? No hay nada que eliminar, error:
+	bgt $t1, $t2, _perrorDelete
+	ble $t1, $t2, _endperrorDelete
+	
+	_perrorDelete:
+		li $a0 -4
+		jal perror
+		j _endDelete
+	__endperrorDelete:
 	
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
 	add $a0, $zero, $t0
@@ -355,6 +362,7 @@
 	_endPrint:		
 	#return: dirección del nodo siguiente al nodo dado. 
 .end_macro
+
 create:
 	#ESTA FUNCION NO RECIBE ARGUMENTOS
 	
