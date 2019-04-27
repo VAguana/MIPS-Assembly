@@ -35,8 +35,29 @@ init:
 .globl init
 
 .macro malloc_utilv2($size)
-	# size: cantidad de bytes que vamos a alojar
+	### ENTRADA ###
+	# size: cantidad de bytes que se esperan alojar.
 	
+	### SALIDA ###
+	# Posicion de memoria donde empieza el segmento con la cantidad de bytes pedidos. Si la cantidad
+	# pedidda no es múltiplo de 4, se completa con una palabra adicional. (padding)
+	
+	### ESTRUCTURA ###
+	# |-|-|-|3| 1|1|1|1| 1|1|1|1| -|-|-|-3|0|0|0|0|
+	# |1w:head| 1w:cont| 1w:cont|  1w:tail|
+	# donde la head y la tail contienen el valor n+1, donde n es la cantidad de palabras alojadas
+	# por ese malloc. El valor de retorno es la dirección de la primera palabra de contenido.
+	
+	### IMPLEMENTACION ###	
+	# Malloc empieza en el inicio del segmento de memoria y se pregunta si esa palabra es 0 o es distinto
+	# si es 0, suma uno al contador de espacio disponible. De lo contrario, reinicia el contador
+	# y salta a la siguiente posible direccion disponible. Para saltar, usa el valor contenido 
+	# en esa palabra no vacía, pues era un head con la informacion de cuantas palabras alojadas
+	# tiene delante. En caso de que el contador nunca alcance la cantidad solicitada, se lanza  un 
+	# error por falta de suficiente espacio contiguo.
+	
+	### --- ###
+
 	addi $t0, $size, 0 # t0: cantidad de bytes a alojar (size)
 	
 	bnez $t0, _endAllocatedZero
@@ -137,140 +158,13 @@ init:
 	sw $t1, 0($t2)       # asignamos la tail
 	sub $t1, $zero, $t1  # t1 <- (words + 1)   
 	addi $t1, $t1, 1     # t1 <- words + 2
+	mul $t1, $t1, 4	     # t1: pasamos de palabras a bytes
 	
 	lw $t2, availableSpace #t2: espacio disponible
 	sub $t2, $t2, $t1      #t2: espacio disponible - espacio alojado
 	sw $t2, availableSpace # Actualizamos el tamaño disponible
 	
 	_endMalloc:
-.end_macro
-
-
-.macro malloc_util($size)
-	#guardamos el tamaño a alojar  en t0:
-	add $t0, $zero, $size
-	div $t0, $t0, 4
-	#A continuación, vamos a buscar el espacio donde alojar:
-	#Guardamos en t1 el la cantidad de palabras que tenemos que buscar (es size/4 si size es 
-	# divisible entre 4, o size // 2 + 1 si no lo es.):
-	addi $a0, $t0, 0
-	addi $a1, $zero, 4
-	
-	jal mod #v0 := size mod 4
-	
-	
-	#¿size mod  4 != 0? vamos a la segunda etiqueta
-	bnez $v0, _ifSizeMod4NotEqZero
-	_ifSizeMod4EqZero:
-		#La cantidad de palabras a alojar es size/4
-		div $t1, $t0, 4
-		j _endIfSizeMod4
-		
-	_ifSizeMod4NotEqZero:
-		#La cantidad de palabras a alojar es size/4 + 1
-		div $t1, $t0, 4
-		addi $t1, $t1, 1 			
-	_endIfSizeMod4:
-	#t1: cantidad de bytes a alojar
-	addi $t1, $t1, 2 # +2 por la head y la tail
-	
-	#Ahora guardamos en t2 el límite de iteración. Vamos a iterar hasta: availableSpace - size - 1
-	lw $t2, availableSpace
-	div $t2, $t2, 4 #t2 := cantidad de bytes disponibles
-	sub $t2,$t2,$t1
-	#Como t1 es size + 2, tenemos que sumar 1 para que sea size + 1
-	addi $t2, $t2, 1
-	#En t3 vamos a llevar un contador de cuanto espacio disponible tenemos para poder alojar:
-	addi $t3, $zero, 0
-	#en t4 tenemos el inicio de la memoria:
-	lw $t4, initHead
-	
-	#En t6 tenemos el iterador del ciclo
-	addi $t6, $zero, 0
-	
-	#En t7 está el candidato a posible posición de malloc
-	move $t7, $t4
-	
-	_mallocWhile:
-		#Esto es un if:
-		#Cargamos en t5 el contenido de la t4-esima posición
-		lw $t5, -0($t4)
-		beq $t5,$zero,_keepCounting
-		bne $t5,$zero,_jumpToNext
-		
-		_jumpToNext:
-			# ¿el elemento actual de la memoria es distinto de 1 y de 0?
-			# Entonces es una head, saltamos el espacio alojado a esa head.
-			
-			#Adelantamos el iterador t6 hasta uno más de la tail
-			add $t6,$t6,$t5
-			addi $t6,$t6,1
-			
-			#Reiniciamos el contador t3 de espacio disponible:
-			addi $t3, $zero, 0
-			
-			#Movemos la posición del arreglo hasta 1 más de la posición de la tail
-			mul $t5, $t5, 4 
-			add $t4, $t4, $t5
-			addi $t4, $t4, 4
-			
-			#configuramos el candidato a posición de malloc t7 como el tail+1
-			move $t7, $t4
-			j _endMallocIf0
-		
-		_keepCounting:
-			#¿El elemento actual es == 0? Entonces sigue contando.
-			addi $t3, $t3, 1
-			addi $t6, $t6, 1
-			
-			#movemos el apuntador a la dirección de memoria:
-			addi $t4, $t4, 4
-			j _endMallocIf0
-			
-		_endMallocIf0:
-	
-		#¿Terminamos el ciclo? Para terminar se tiene que cumplir que ($t3)==($t1) O ($t6)>=(avaibleSpace)
-
-		slt $t8, $t3, $t1 # t8 = ¿($t3)<($t1)//espacio a alojar? 
-		slt $t9, $t6, $t2 # t9 = ¿($t6)<(limiteDeIteracion) ?
-		and $t8, $t8, $t9 # t8 = ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)?
-		beq $t8,1, _mallocWhile # ¿($t3)<($t1) && ($t6)<(limiteDeIteracion)==True? entonces vuelve al ciclo.
-	
-	#Terminamos el ciclo, vemos si pudimos alojar:
-	bne $t3, $t1, _perrorMalloc #¿ t3 < t1 (espacio contiguo disponible < espacio necesitado) ? Termina con un error 
-	bge $t3, $t1, _allocate
-	
-	_perrorMalloc:
-		li $a0 -2
-		jal perror
-	
-	_allocate:
-		#Configuramos el head:
-		subi $t1, $t1, 1 # t1: cantidad de bytes disponibles + 1
-		sw $t1, -0($t7)
-		addi $t3, $zero, 1 # t3 será nuestra variable de iteración.
-		addi $t7, $t7,4 #El ciclo empieza en head + 1
-		add $v0, $zero, $t7 #hacemos "return t7", dado que en t7 está la posición de la memoria donde empieza		
-		addi $t8, $zero, 16843009 #El número que vamos a guardar en cada casilla
-		
-		_allocateWhile:
-			sw $t8, -0($t7)
-			addi $t3, $t3, 1 #aumentamos la variable de iteración
-			addi $t7, $t7, 4 #movemos la posición donde estamos alojando.
-			
-			sle $t6, $t3, $t0 # t6 := t3 <= $size (espacio alojado <= espacio a alojar)
-			beq $t6, 1, _allocateWhile # ¿(espacio alojado <= espacio a alojar)==True? Entonces vuelve al ciclo
-		
-		#Salimos del ciclo, vamos a configurar la tail:
-		sub $t0, $zero, $t0
-		sw $t0, -0($t7)
-		
-		#Si el malloc fue exitoso, devuelve 1 en $v0
-		#li $v0 1
-		
-	_endMalloc:
-		
-
 .end_macro
 
 

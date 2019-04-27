@@ -10,6 +10,9 @@
 	addi $a0, $zero, 8
 	jal malloc
 	
+	addi $a0, $zero, 9
+	jal malloc
+	
 	addi $v0, $zero, 10
 	syscall
 	
