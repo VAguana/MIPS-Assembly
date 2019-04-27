@@ -34,6 +34,89 @@ init:
 
 .globl init
 
+.macro malloc_utilv2($size)
+	# size: cantidad de bytes que vamos a alojar
+	
+	addi $t0, $size, 0 # t0: cantidad de bytes a alojar (size)
+	#tenemos que calcular la cantidad de palabras que es necesario alojar:
+	addi $a0, $t0, 0   # a0 <- size
+	addi $a1, $zero, 4 # a1 <- 4
+	
+	jal mod #v0 <- a0 mod a1 (size mod 4)
+	bnez $v0, 
+	_SizeMod4EqZero:
+		div $t1, $t0, 4 # t1 <- size//4
+		j _endIfSizeMod4
+		
+	_SizeMod4NotEqZero:
+		div $t1, $t0, 4 # t1 <- size//4
+		addi $t1, $t1, 1 # t1 <- size//4 + 1
+	_endIfSizeMod4:
+	
+	addi $t1, $t1, 2 # t1: cantidad de palabras a alojar (size + 2)
+	
+	#Buscamos donde alojar:
+	lw $t2, initHead    #t2: candidato a posicion donde alojar
+	addi $t3, $zero, 1  #t3: contador de espacio disponible
+	
+	lw $t4, availableSpace # t4 <- availableSpace
+	div $t4, $t4, 4        # t4 <- availableSpace // 4
+	sub $t4, $t4, $t1      # t4 <- availableSpace // 4 - size - 2
+	addi $t4, $t4, 1       # t4 <- availableSpace // 4 - size - 1
+	
+	subi $t5, $t1, 1       # t5 <- size + 1
+	
+	addi $t6, $zero, 1     # t6: indice i de los bytes recorridos.
+	slt $t7, $t6, $t4      # t7 <- i < availableSpace // 4 - nwords + 1
+	sle $t8,$t3, $t5       # t8 <- foundedSize <= size +1
+	and $t7, $t7, $t8      # t7 <-  i < availableSpace // 4 - nwords + 1 ^ foundedSize <= size +1
+	
+	addi $t9, $t4, 0       # t9 <- t4. USaremos t9 para iterar sobre el segmento de memoria
+	
+	_whileSearchingSpace:
+	beqz $t7, _endWhileSearching
+		
+		lw $t7, 0($t9) # t7 <- (t9) (contenido del iterador de memoria)
+		
+		#¿La posicion actual de memoria está vacía?
+		bnez $t7, _ifWordNotEmpty
+		_ifWordIsEmpty:
+			addi $t3, $t3, 1 # t3 += 1
+			addi $t9, $t9, 4 # t9 = t9.next
+			addi $t6, $t6, 1
+			j _endIfWordEmpty
+		_ifWordNotEmpty:
+			addi $t3, $zero, 1 #reiniciamos el contador de espacio encontrado
+			addi $t7, $t7, 1   
+			mul $t7, $t7, 4	   #Saltamos a la siguiente posicion de memoria posiblemente disponible
+			add $t2, $t2, $t7  
+			add $t6, $t6, $t7  #Saltamos al siguiente índice de la memoria.
+			
+		_endIfWordEmpty:
+	
+		slt $t7, $t6, $t4      # t7 <- i < availableSpace // 4 - nwords + 1
+		sle $t8,$t3, $t5       # t8 <- foundedSize <= size +1
+		and $t7, $t7, $t8      # t7 <-  i < availableSpace // 4 - nwords + 1 ^ foundedSize <= size +1	
+		bnez $t7, _whileSearchingSpace
+	
+	_endWhileSearching:
+	
+	#Verificamos si pudimos encontrar una posicion válida:
+	beq $t3, $t1, _endNotEnoughMem
+	_NotEnoughMem:
+		j _endMalloc
+	_endNotEnoughMem:
+	#Alojamos memoria:
+	subi $t1, $t1, 1 #t1 = words - 1
+	sw $t1, 0($t2)   #asignamos el valor de la head correctamente
+  	addi $t2, $t2, 4 #consideramos el siguiente de la head
+  	
+  	### NOS QUEDAMOS AQUÍ: falta alojar el espacio que encontramos 
+	
+	
+	_endMalloc:
+.end_macro
+
 
 .macro malloc_util($size)
 	#guardamos el tamaño a alojar  en t0:
