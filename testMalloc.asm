@@ -116,9 +116,9 @@ init:
 		_ifWordNotEmpty:
 			addi $t3, $zero, 1  #reiniciamos el contador de espacio encontrado
 			addi $t7, $t7, 1   
+			add $t6, $t6, $t7   #Saltamos al siguiente índice de la memoria.			
 			mul $t7, $t7, 4	    #Saltamos a la siguiente posicion de memoria posiblemente disponible
 			add $t2, $t2, $t7  
-			add $t6, $t6, $t7   #Saltamos al siguiente índice de la memoria.
 			add $t9, $t9, $t7   #Movemos el iterador de memoria 
 			addi $t2, $t9, 0    #actualizamos el posible candidato a nuevo inicio  
 			
