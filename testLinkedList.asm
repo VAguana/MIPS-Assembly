@@ -142,7 +142,7 @@
 	
 .end_macro	
 
-.macro delete($lista, $pos)
+.macro delete_util($lista, $pos)
 
 	### ENTRADA ###
 	# lista: apuntador a la lista cuyo elemento queremos eliminar.
@@ -226,6 +226,10 @@
 		#Retornamos la posicion direccionada por t3:
 		lw $v0, 0($t3)
 		#free($t3)
+		#Actualizamos la cantidad de elementos en la lista:
+		lw $t1, 8($t0)
+		subi $t1, $t1, 1
+		sw $t1, 8($t0)		
 		j _endDelete
 	_endIfPosEqOne:
 	
@@ -249,6 +253,11 @@
 	
 	#NOT YET IMPLEMENTED: liberamos el espacio del nodo:
 	#free($t3)
+	
+	#Actualizamos la cantidad de elementos en la lista:
+	lw $t1, 8($t0)
+	subi $t1, $t1, 1
+	sw $t1, 8($t0)
 	
 	add $v0, $zero, $v1
 
@@ -420,7 +429,27 @@ fun_print:
 	lw $ra, 0($sp)	
 	#volvemos 
 	jr $ra
-
+	
+delete:
+	# a0: direccion de la listas donde queremos eliminar
+	# a1: la posicion del elemento que queremos eliminar
+	
+	#guardamos
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	
+	delete_util($a0, $a1)
+	
+	#restauramos:
+	addi $sp, $sp, 4
+	sw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
+	#volvemos 
+	jr $ra
+	
 newNumber:
 	# a0: número que queremos instanciar
 	sw $ra, 0($sp)
