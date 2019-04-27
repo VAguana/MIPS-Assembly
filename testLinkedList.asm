@@ -180,7 +180,7 @@
 		li $a0 -4
 		jal perror
 		j _endDelete
-	__endperrorDelete:
+	_endperrorDelete:
 	
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
 	add $a0, $zero, $t0

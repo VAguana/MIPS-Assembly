@@ -346,6 +346,8 @@ perror:
 	beq $a0, -2, print_error_malloc
 	beq $a0, -3, print_error_free
 	beq $a0, -4, print_error_delete
+	bge $a0, 0, print_unknown
+	ble $a0, -5, print_unknown
 
 print_error_init:
 	la $a0 error_init
@@ -382,6 +384,15 @@ print_error_delete:
 	li $v0 -4
 
 	jr $ra
+	
+print_unknown:
+	la $a0 error_unknown
+	li $v0 4
+	syscall
+
+	li $v0 -5
+
+	jr $ra
 
 .data 
 	
@@ -405,4 +416,5 @@ print_error_delete:
 	error_malloc: .asciiz "Error. No hay espacio suficiendo en memoria para alojar la cantidad solicitada"
 	error_free: .asciiz "Error. La dirección ingresada con un un head"
 	error_delete: .asciiz "Error. El elemento no se encuentra en la lista"
-	.globl availableSpace, initHead,debugStr, heapSize, error_init, error_malloc, error_free, error_delete, space, endln
+	error_unknown: .asciiz "Error desconocido"
+	.globl availableSpace, initHead,debugStr, heapSize, error_init, error_malloc, error_free, error_delete, error_unknown space, endln
