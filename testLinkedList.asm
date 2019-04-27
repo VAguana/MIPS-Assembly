@@ -361,14 +361,14 @@ create:
 	#Guardamos:
 	sw $ra, 0($sp)
 	subi $sp, $sp, 4
-	sw $ra, 0($sp)
+	sw $a0, 0($sp)
 	subi $sp, $sp, 4
 	
 	create_util() #llamamos:
 	
 	#restauramos:
 	addi $sp, $sp, 4
-	lw $ra, 0($sp)
+	lw $a0, 0($sp)
 	addi $sp, $sp, 4
 	lw $ra, 0($sp)
 	
@@ -439,12 +439,16 @@ delete:
 	subi $sp, $sp, 4
 	sw $a0, 0($sp)
 	subi $sp, $sp, 4
+	sw $v1, 0($sp)
+	subi $sp, $sp, 4
 	
 	delete_util($a0, $a1)
 	
 	#restauramos:
 	addi $sp, $sp, 4
-	sw $a0, 0($sp)
+	lw $v1, 0($sp)
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)
 	addi $sp, $sp, 4
 	lw $ra, 0($sp)	
 	#volvemos 
