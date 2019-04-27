@@ -173,8 +173,8 @@ init:
 	#Guardamos la head del segmento a eliminar:
 	add $t0, $zero, $space
 	
-	#Guardamos el límite de iteración:
-	lb $t1, -1($t0)
+	#Guardamos el límite de iteración (contenido del head):
+	lw $t1, -1($t0)
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
@@ -191,14 +191,14 @@ init:
 	
 	_deleteHead:
 		#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
-		addi $t3, $zero, 0
-		sb $t3, -1($t0)
+		add $t3, $zero, $zero
+		sw $t3, -1($t0)
 
 	_whileFree:
 		
 		#Comenzamos a eliminar la posición deseada
-		sb $zero, 0($t0)
-		addi $t0, $t0, 1
+		sw $zero, 0($t0)
+		addi $t0, $t0, 4
 		
 		#Resto 1 al contador de espacio
 		subi $t1, $t1, 1
