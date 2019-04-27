@@ -323,11 +323,16 @@ malloc:
 	#guardamos:
 	sw $ra, 0($sp)
 	subi $sp, $sp, 4
+	sw $a1, 0($sp)
+	subi $sp, $sp, 4
+	
 	
 	#alojamos:
 	malloc_utilv2($a0)
 	
 	#restauramos:
+	addi $sp, $sp, 4
+	lw $a1, 0($sp)	
 	addi $sp, $sp, 4
 	lw $ra, 0($sp)	
 	
