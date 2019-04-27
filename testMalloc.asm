@@ -38,12 +38,19 @@ init:
 	# size: cantidad de bytes que vamos a alojar
 	
 	addi $t0, $size, 0 # t0: cantidad de bytes a alojar (size)
+	
+	bnez $t0, _endAllocatedZero
+	_allocatedZero:
+		addi $v0, $zero, 0 #Se solicitó 0 espacio. Retornamos 0 y devolvemos
+		j _endMalloc
+	_endAllocatedZero:
+	
 	#tenemos que calcular la cantidad de palabras que es necesario alojar:
 	addi $a0, $t0, 0   # a0 <- size
 	addi $a1, $zero, 4 # a1 <- 4
 	
 	jal mod #v0 <- a0 mod a1 (size mod 4)
-	bnez $v0, 
+	bnez $v0, _SizeMod4NotEqZero
 	_SizeMod4EqZero:
 		div $t1, $t0, 4 # t1 <- size//4
 		j _endIfSizeMod4
@@ -71,7 +78,7 @@ init:
 	sle $t8,$t3, $t5       # t8 <- foundedSize <= size +1
 	and $t7, $t7, $t8      # t7 <-  i < availableSpace // 4 - nwords + 1 ^ foundedSize <= size +1
 	
-	addi $t9, $t4, 0       # t9 <- t4. USaremos t9 para iterar sobre el segmento de memoria
+	addi $t9, $t2, 0       # t9 <- t2. USaremos t9 para iterar sobre el segmento de memoria
 	
 	_whileSearchingSpace:
 	beqz $t7, _endWhileSearching
@@ -86,11 +93,13 @@ init:
 			addi $t6, $t6, 1
 			j _endIfWordEmpty
 		_ifWordNotEmpty:
-			addi $t3, $zero, 1 #reiniciamos el contador de espacio encontrado
+			addi $t3, $zero, 1  #reiniciamos el contador de espacio encontrado
 			addi $t7, $t7, 1   
-			mul $t7, $t7, 4	   #Saltamos a la siguiente posicion de memoria posiblemente disponible
+			mul $t7, $t7, 4	    #Saltamos a la siguiente posicion de memoria posiblemente disponible
 			add $t2, $t2, $t7  
-			add $t6, $t6, $t7  #Saltamos al siguiente índice de la memoria.
+			add $t6, $t6, $t7   #Saltamos al siguiente índice de la memoria.
+			add $t9, $t9, $t7   #Movemos el iterador de memoria 
+			addi $t2, $t9, 0    #actualizamos el posible candidato a nuevo inicio  
 			
 		_endIfWordEmpty:
 	
@@ -107,12 +116,31 @@ init:
 		j _endMalloc
 	_endNotEnoughMem:
 	#Alojamos memoria:
-	subi $t1, $t1, 1 #t1 = words - 1
-	sw $t1, 0($t2)   #asignamos el valor de la head correctamente
-  	addi $t2, $t2, 4 #consideramos el siguiente de la head
+	subi $t1, $t1, 1   #t1 = words + 1
+	sw $t1, 0($t2)     #asignamos el valor de la head correctamente
+  	addi $t2, $t2, 4   #consideramos el siguiente de la head
+  	addi $t3, $zero, 1 #t3: iterador del ciclo. Empieza en 1.
+  	addi $t4, $zero, 16843009 # t4: valor que vamos a guardar en cada casilla alojada
   	
+  	addi $v0, $t2, 0   #retornamos la posicion de origen del espacio de memoria
   	### NOS QUEDAMOS AQUÍ: falta alojar el espacio que encontramos 
+	_allocate:
+		bge $t3, $t1,  _endAllocate #i >= words + 1
+		
+		sw $t4, 0($t2)
+		addi $t2, $t2, 4
+		addi $t3, $t3, 1
+		
+		blt $t3, $t1,  _allocate   # i < words + 1
+	_endAllocate:
+	sub $t1, $zero, $t1  # t1 <-  -(words + 1)
+	sw $t1, 0($t2)       # asignamos la tail
+	sub $t1, $zero, $t1  # t1 <- (words + 1)   
+	addi $t1, $t1, 1     # t1 <- words + 2
 	
+	lw $t2, availableSpace #t2: espacio disponible
+	sub $t2, $t2, $t1      #t2: espacio disponible - espacio alojado
+	sw $t2, availableSpace # Actualizamos el tamaño disponible
 	
 	_endMalloc:
 .end_macro
@@ -182,6 +210,7 @@ init:
 			addi $t3, $zero, 0
 			
 			#Movemos la posición del arreglo hasta 1 más de la posición de la tail
+			mul $t5, $t5, 4 
 			add $t4, $t4, $t5
 			addi $t4, $t4, 4
 			
@@ -402,11 +431,11 @@ malloc:
 	subi $sp, $sp, 4
 	
 	#alojamos:
-	malloc_util($a0)
+	malloc_utilv2($a0)
 	
 	#restauramos:
 	addi $sp, $sp, 4
-	sw $ra, 0($sp)	
+	lw $ra, 0($sp)	
 	
 	#volvemos:
 	jr $ra
