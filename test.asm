@@ -73,7 +73,7 @@
 	jal print
 	
 	addi $a0, $s1, 0
-	#jal free
+	jal free
 	
 	addi $v0, $zero, 10
 	syscall
