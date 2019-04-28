@@ -47,16 +47,33 @@
 	jal print
 	
 	addi $a0, $s1, 0
-	addi $a1, $zero, 2
+	addi $a1, $zero, 1
 	jal delete
 	
 	addi $a0, $s1, 0
 	addi $a1, $zero, 3
 	jal delete
+	
+	addi $a0, $s1, 0
+	addi $a1, $zero, 1
+	jal delete
+	
+	addi $a0, $s1, 0
+	addi $a1, $zero, 1
+	jal delete
+	
+	addi $a0, $s1, 0
+	addi $a1, $zero, 1
+	jal delete
+	
+	
 		
 	addi $a0, $s1, 0
 	la $a1, fun_print
 	jal print
+	
+	addi $a0, $s1, 0
+	#jal free
 	
 	addi $v0, $zero, 10
 	syscall

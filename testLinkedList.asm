@@ -197,8 +197,12 @@
 		sw $zero, 0($t0) #Quitamos el inicio
 		sw $zero, 4($t0) #Quitamos  el fin
 		
-		lw $v0, 0($t3)   #Retornamos la posicion del elemento direccionado
+		lw $v1, 0($t3)   #Retornamos la posicion del elemento direccionado
 		#free($t3)       #Liberamos el espacio ocupado por el nodo.
+		addi $a0, $t3, 0
+		jal free
+		
+		addi $v0, $v1, 0
 		j _endDelete	 #Terminamos
 	_endIfNumElemnEqOne:
 	 
@@ -231,8 +235,13 @@
 		sw $t5, 0($t0)
 		#Falta saltar a la parte donde hacemos return
 		#Retornamos la posicion direccionada por t3:
-		lw $v0, 0($t3)
-		#free($t3)
+		lw $v1, 0($t3)
+		
+		#free($t3): liberamos el espacio ocupado
+		addi $a0, $t3, 0
+		jal free
+		
+		addi $v0, $v1, 0
 		#Actualizamos la cantidad de elementos en la lista:
 		lw $t1, 8($t0)
 		subi $t1, $t1, 1
@@ -259,7 +268,7 @@
 	lw $v1, 0($t5)
 	
 	#liberamos el espacio del nodo:
-	add $a0, $zero, $t3
+	add $a0, $zero, $t5
 	jal free
 	
 	#Actualizamos la cantidad de elementos en la lista:
@@ -324,10 +333,7 @@
 	# sea distinta de 0x0, se llama a la funcion de impresion "function" sobre esa direccion, luego se imprime
 	# un espacio.
 	
-	### --- ###
-	#Guardamos los registros que usamos:
-	sw $a0, 0($sp)
-	addi $sp, $sp, -4
+	### --- ###4
 	#Guardamos la dirección de lista en t0
 	add $t0, $zero, $lista
 	#En t1 vamos a llevar el siguiente elemento a imprimir, empezamos con el primero:
@@ -357,9 +363,6 @@
 	addi $v0, $zero, 4
 	syscall 
 	
-	#recuperamos lo guardado
-	addi $sp, $sp, 4
-	lw $a0, ($sp)
 	_endPrint:		
 	#return: dirección del nodo siguiente al nodo dado. 
 .end_macro
@@ -410,7 +413,7 @@ print:
 	
 	#restauramos:
 	addi $sp, $sp, 4
-	sw $a0, 0($sp)
+	lw $a0, 0($sp)
 	addi $sp, $sp, 4
 	lw $ra, 0($sp)	
 	
