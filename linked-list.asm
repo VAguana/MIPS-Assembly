@@ -137,6 +137,7 @@
 	sw $v0, 0($t0)   # head <- nuevo elemento
 	
 	_endInsertSucc:
+		li $v0 1
 		addi $t2, $t2, 1
 		sw $t2, 8($t0)
 	

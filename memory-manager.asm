@@ -413,8 +413,8 @@ print_unknown:
 	# para ese malloc.
 	
 	error_init: .asciiz "Error. La memoria solicitada supera el almacenamiento del heap"
-	error_malloc: .asciiz "Error. No hay espacio suficiendo en memoria para alojar la cantidad solicitada"
-	error_free: .asciiz "Error. La dirección ingresada con un un head"
+	error_malloc: .asciiz "Error. No hay espacio suficiente en memoria para alojar la cantidad solicitada"
+	error_free: .asciiz "Error. La dirección ingresada no es un head"
 	error_delete: .asciiz "Error. El elemento no se encuentra en la lista"
 	error_unknown: .asciiz "Error desconocido"
 	.globl availableSpace, initHead,debugStr, heapSize, error_init, error_malloc, error_free, error_delete, error_unknown space, endln
