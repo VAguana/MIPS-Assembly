@@ -1,20 +1,22 @@
-#Vamos a definir una linked list:
 
-
-.data
-	space: .asciiz " "
-	endln: .asciiz "\n"
-	error_delete: .asciiz "Error. No se pueden eliminar elementos que no se encuentren en la lista"
 	
-.macro newNumber($number)
-
+.macro newNumber_util($number)
 	add $t0, $zero, $number
-	malloc(4)
+	addi $a0, $zero, 4
+	#guardamos:
+	sw $t0, 0($sp)
+	subi $sp, $sp, 4
+	
+	jal malloc #malloc(4)
+	
+	#recuperamos:
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)
+	
 	sw $t0, 0($v0)
-
 .end_macro
 	
-.macro create()
+.macro create_util()
 	### DESCRIPCION ###
 	# Instancia una lista y devuelve la posicion de memoria donde está la cabeza de esa lista
 
@@ -42,7 +44,8 @@
 	### --- ###
 	
 	#Primero tenemos que alojar el espacio total que vamos a necesitar para la lista:
-	malloc(12)
+	addi $a0, $zero, 12
+	jal malloc #malloc(12)
 
 	#Ahora tenemos que alojar las diferentes parte de la estructura de lista.
 	
@@ -55,7 +58,7 @@
 	
 .end_macro
 
-.macro insert($lista_ptr,$dir)
+.macro insert_util($lista_ptr,$dir)
 	### DESCRIPCION ###
 	# Dada una lista, inserta el elemento cuya direccion es "dir" en la lista
 	
@@ -90,8 +93,26 @@
 	add $t1, $zero, $dir       # t1: direccion del elemento a añadir
 	lw $t3, 8($t0)		   # t3: numero de elementos en la lista
 	
+	#Ya que usamos malloc, tenemos que guardar los t:
+	sw $t0, 0($sp)
+	subi $sp, $sp, 4
+	sw $t1, 0($sp)
+	subi $sp, $sp, 4
+	sw $t3, 0($sp)
+	subi $sp, $sp, 4
+	
+	
 	#Creamos el espacio del nodo:
-	malloc(8)	
+	addi $a0, $zero, 8
+	jal malloc #malloc(8)	
+	
+	#restauramos los t:
+	addi $sp, $sp, 4
+	lw $t3, 0($sp)
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)	
 	
 	#Ahora configuramos las posiciones correspondientes en las posiciones correspondientes
 	sw $t1, 0($v0)
@@ -121,7 +142,7 @@
 	
 .end_macro	
 
-.macro delete($lista, $pos)
+.macro delete_util($lista, $pos)
 
 	### ENTRADA ###
 	# lista: apuntador a la lista cuyo elemento queremos eliminar.
@@ -142,7 +163,7 @@
 	### --- ###
 	
 	#Cargamos en t0 la direccion de la lista:
-	add $t0, $zero, $lista #t0: posicion de la lista
+	add $t0, $zero, $lista #t0: direccion de la lista
 	
 	#cargamos en t1 la posicion del elemento:
 	add $t1, $zero, $pos #t1: posicion EN la lista
@@ -151,17 +172,16 @@
 	lw $t2, 8($t0) #t2: numero de elementos:
 	
 	#Verificamos si hay algo que eliminar:
-	# ¿pos > nelements? No hay nada que eliminar, termina:
+	# ¿pos > nelements? No hay nada que eliminar, error:
 	bgt $t1, $t2, _perrorDelete
-	blt $t1, 0, _perrorDelete
-	ble $t1, $t2, _successDelete
+	ble $t1, $t2, _endperrorDelete
 	
 	_perrorDelete:
-	li $a0 -4
-	j perror_list
-	j _endDelete
+		li $a0 -4
+		jal perror
+		j _endDelete
+	_endperrorDelete:
 	
-	_successDelete:
 	#Como podemos eliminar, cargamos en t3 el primer elemento de la lista y vamos buscando:
 	add $a0, $zero, $t0
 	jal first
@@ -176,9 +196,16 @@
 	_ifNumElemnEqOne:
 		sw $zero, 0($t0) #Quitamos el inicio
 		sw $zero, 4($t0) #Quitamos  el fin
+		sw $zero, 8($t0) #el número de elementos ahora es 0
 		
-		lw $v0, 0($t3)   #Retornamos la posicion del elemento direccionado
+		lw $v1, 0($t3)   #Retornamos la posicion del elemento direccionado
 		#free($t3)       #Liberamos el espacio ocupado por el nodo.
+		addi $a0, $t3, 0
+		jal free
+		
+		
+		
+		addi $v0, $v1, 0
 		j _endDelete	 #Terminamos
 	_endIfNumElemnEqOne:
 	 
@@ -211,8 +238,24 @@
 		sw $t5, 0($t0)
 		#Falta saltar a la parte donde hacemos return
 		#Retornamos la posicion direccionada por t3:
-		lw $v0, 0($t3)
-		#free($t3)
+		lw $v1, 0($t3)
+		
+		#guardamos t0:
+		sw $t0, 0($sp)
+		subi $sp, $sp, 4
+		#free($t3): liberamos el espacio ocupado
+		addi $a0, $t3, 0
+		jal free
+		
+		#Recuperamos el t0
+		addi $sp, $sp, 4
+		lw $t0, 0($sp)			
+			
+		addi $v0, $v1, 0
+		#Actualizamos la cantidad de elementos en la lista:
+		lw $t1, 8($t0)
+		subi $t1, $t1, 1
+		sw $t1, 8($t0)		
 		j _endDelete
 	_endIfPosEqOne:
 	
@@ -234,21 +277,32 @@
 	#Cargamos en v1 la dirección del elemento que era direccionado por el nodo eliminado
 	lw $v1, 0($t5)
 	
-	#NOT YET IMPLEMENTED: liberamos el espacio del nodo:
-	#free($t3)
+	#guardamos t0
+	sw $t0, 0($sp)
+	subi $sp, $sp, 4
+	
+	#liberamos el espacio del nodo:
+	add $a0, $zero, $t5
+	jal free
+	
+	#recuperamos t0
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)
+
+	
+	#Actualizamos la cantidad de elementos en la lista:
+	lw $t1, 8($t0)
+	subi $t1, $t1, 1
+	sw $t1, 8($t0)
 	
 	add $v0, $zero, $v1
 
 	_endDelete:
+	
 .end_macro
 
-.macro malloc($bytes)
-	add $a0, $zero, $bytes
-	addi $v0, $zero, 9
-	syscall
-.end_macro
 
-.macro fun_print($nodeDir)
+.macro fun_print_util($nodeDir)
 	### DESCRIPCION ###
 	# Utilidad auxiliar para imprimir enteros en una lista enlazada.
 	
@@ -285,7 +339,7 @@
 .end_macro
 
 
-.macro print($lista,$function)
+.macro print_util($lista,$function)
 	### ENTRADA ###
 	# lista: La direccion de la cabeza de la lista cuyo contenido queremos imprimir
 	
@@ -298,10 +352,7 @@
 	# sea distinta de 0x0, se llama a la funcion de impresion "function" sobre esa direccion, luego se imprime
 	# un espacio.
 	
-	### --- ###
-	#Guardamos los registros que usamos:
-	sw $a0, 0($sp)
-	addi $sp, $sp, -4
+	### --- ###4
 	#Guardamos la dirección de lista en t0
 	add $t0, $zero, $lista
 	#En t1 vamos a llevar el siguiente elemento a imprimir, empezamos con el primero:
@@ -312,7 +363,9 @@
 	_printWhileT1NotZero:
 
 		beqz $t1, _endPrint
-		$function($t1)
+		addi $a0, $t1, 0
+		jalr $function   # $function($t1)
+		
 		#Incrementamos t1:
 		add $a0, $zero, $t1
 		jal next
@@ -329,55 +382,121 @@
 	addi $v0, $zero, 4
 	syscall 
 	
-	#recuperamos lo guardado
-	addi $sp, $sp, 4
-	lw $a0, ($sp)
 	_endPrint:		
 	#return: dirección del nodo siguiente al nodo dado. 
 .end_macro
 
-perror_list:
-	beq $a0, -4, print_error_delete
-
-print_error_delete:
-	la $a0 error_delete
-	li $v0 4
-	syscall
-
-	li $v0 -4
-
+create:
+	#ESTA FUNCION NO RECIBE ARGUMENTOS
+	
+	#Guardamos:
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	
+	create_util() #llamamos:
+	
+	#restauramos:
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)
+	
+	jr $ra #volvemos
+	
+insert:
+	# a0: direccion de la lista donde queremos añadir
+	# a1: direccion del valor que  queremos añadir a la lista
+	#guardamos:
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	
+	insert_util($a0,$a1)
+	
+	#restauramos:
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
+	#volvemos 
 	jr $ra
 
-.text
-	#Creamos una lista
-	create()
-	addi $a1, $v0, 0
+print:
+	#a0: direccion de la lista que vamos a imprimir
+	#a1: label de la funcion que usamos para imprimir
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
 	
-	newNumber(1)
-	insert($a1,$v0)
+	print_util($a0,$a1)	
 	
-	newNumber(2)
-	insert($a1,$v0)
+	#restauramos:
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
 	
-	newNumber(3)
-	insert($a1,$v0)
-	
-	newNumber(4)
-	insert($a1,$v0)
-	
-	newNumber(5)
-	insert($a1,$v0)
-	print($a1, fun_print)
-	
-	delete($a1,5)
-	delete($a1,1)
+	#volvemos 
+	jr $ra
 
-	print($a1, fun_print)
-	#fun_print()
+fun_print:
+	# a0: direccion del elemento a imprimir
+
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	sw $a1, 0($sp)
+	subi $sp, $sp, 4
 	
-	j end
+	fun_print_util($a0)
 
+	#restauramos:
+	addi $sp, $sp, 4
+	sw $a1, 0($sp)	
+	addi $sp, $sp, 4
+	sw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
+	#volvemos 
+	jr $ra
+	
+delete:
+	# a0: direccion de la listas donde queremos eliminar
+	# a1: la posicion del elemento que queremos eliminar
+	
+	#guardamos
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	sw $v1, 0($sp)
+	subi $sp, $sp, 4
+	
+	delete_util($a0, $a1)
+	
+	#restauramos:
+	addi $sp, $sp, 4
+	lw $v1, 0($sp)
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
+	#volvemos 
+	jr $ra
+	
+newNumber:
+	# a0: número que queremos instanciar
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	
+	newNumber_util($a0)
 
+	#restauramos:
+	addi $sp, $sp, 4
+	lw $ra, 0($sp)	
+	#volvemos 
+	jr $ra
 
 first:
 	### DESCRIPCION ###
@@ -422,7 +541,8 @@ next:
 	#volvemos
 	jr $ra
 
-#push:
-     #Template para empilar registros. NO ES UNA FUNCIÓN.
-#     sw registro, -0($sp)
-#     addi $sp,	$sp, -4
+
+end:
+	li $v0 10
+	syscall
+.include "memory-manager.asm"
