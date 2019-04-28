@@ -51,7 +51,7 @@
 	jal delete
 	
 	addi $a0, $s1, 0
-	addi $a1, $zero, 4
+	addi $a1, $zero, 2
 	jal delete
 		
 	addi $a0, $s1, 0
