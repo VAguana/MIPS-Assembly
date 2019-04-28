@@ -47,11 +47,11 @@
 	jal print
 	
 	addi $a0, $s1, 0
-	addi $a1, $zero, 1
+	addi $a1, $zero, 2
 	jal delete
 	
 	addi $a0, $s1, 0
-	addi $a1, $zero, 2
+	addi $a1, $zero, 3
 	jal delete
 		
 	addi $a0, $s1, 0

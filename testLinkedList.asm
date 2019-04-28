@@ -258,8 +258,9 @@
 	#Cargamos en v1 la dirección del elemento que era direccionado por el nodo eliminado
 	lw $v1, 0($t5)
 	
-	#NOT YET IMPLEMENTED: liberamos el espacio del nodo:
-	#free($t3)
+	#liberamos el espacio del nodo:
+	add $a0, $zero, $t3
+	jal free
 	
 	#Actualizamos la cantidad de elementos en la lista:
 	lw $t1, 8($t0)
