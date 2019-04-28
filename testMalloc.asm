@@ -180,7 +180,7 @@ init:
 	add $t0, $zero, $space
 	
 	#Guardamos el límite de iteración (contenido del head):
-	lw $t1, -1($t0)
+	lw $t1, -4($t0)
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
@@ -196,7 +196,7 @@ init:
 	_deleteHead:
 		#¿El elemento actual es una head? Entonces comenzamos a liberar el espacio.
 		add $t3, $zero, $zero
-		sw $t3, -1($t0)
+		sw $t3, -4($t0)
 
 	_whileFree:
 		
