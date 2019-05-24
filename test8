@@ -1,0 +1,20 @@
+#test 8
+.text
+	#Inicializamos manejador
+	addi $a0, $zero, 400
+	jal init
+	
+	#Creamos una lista:
+	jal create
+	
+	
+	
+
+
+
+
+	addi $v0, $zero, 0
+	syscall
+
+
+.include "linked-list.asm"
