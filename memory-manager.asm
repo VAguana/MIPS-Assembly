@@ -12,9 +12,9 @@ init:
 	sw $t0, availableSpace
 	sw $t0, heapSize	
 	
-	#Verificamos que el init sea menor a 500 (tamaño heap virtual)
-	bgt $t0, 500, _perrorInit
-	ble $t0, 500, _initSuccess
+	#Verificamos que el init sea menor a 600 (tamaño heap virtual)
+	bgt $t0, 600, _perrorInit
+	ble $t0, 600, _initSuccess
 	
 	_perrorInit:
 		li $a0 -1
@@ -58,7 +58,15 @@ init:
 	# error por falta de suficiente espacio contiguo.
 	
 	### --- ###
-
+	
+	####
+	lw $t0, availableSpace
+	
+	bgt $size, $t0, _fatalError
+	
+	addi $t0, $t0, 12
+	sw $t0, availableSpace
+	
 	addi $t0, $size, 0 # t0: cantidad de bytes a alojar (size)
 	
 	bnez $t0, _endAllocatedZero
@@ -125,8 +133,9 @@ init:
 			
 		_endIfWordEmpty:
 	
-		slt $t7, $t6, $t4      # t7 <- i < availableSpace // 4 - nwords + 1
+		#slt $t7, $t6, $t4      # t7 <- i < availableSpace // 4 - nwords + 1
 		sle $t8,$t3, $t5       # t8 <- foundedSize <= size +1
+		addi $t7, $zero, 1
 		and $t7, $t7, $t8      # t7 <-  i < availableSpace // 4 - nwords + 1 ^ foundedSize <= size +1	
 		bnez $t7, _whileSearchingSpace
 	
@@ -136,6 +145,12 @@ init:
 	beq $t3, $t1, _endNotEnoughMem
 	
 	_NotEnoughMem:
+		li $a0 -2
+		lw $t0, availableSpace
+		subi $t0, $t0, 12
+		sw $t0, availableSpace
+		
+		_fatalError:
 		li $a0 -2
 		jal perror
 		j _endMalloc
@@ -163,7 +178,7 @@ init:
 	sub $t1, $zero, $t1  # t1 <-  -(words + 1)
 	sw $t1, 0($t2)       # asignamos la tail
 	sub $t1, $zero, $t1  # t1 <- (words + 1)   
-	addi $t1, $t1, 1     # t1 <- words + 2
+	addi $t1, $t1, 2     # t1 <- words + 2
 	mul $t1, $t1, 4	     # t1: pasamos de palabras a bytes
 	
 	lw $t2, availableSpace #t2: espacio disponible
@@ -171,6 +186,7 @@ init:
 	sw $t2, availableSpace # Actualizamos el tamaño disponible
 	
 	_endMalloc:
+
 .end_macro
 
 
@@ -181,6 +197,7 @@ init:
 	
 	#Guardamos el límite de iteración (contenido del head):
 	lw $t1, -4($t0)
+	lw $t4, -4($t0)
 	
 	#Esto es un if:
 	#Revisamos si la posición de memoria ingresada NO es un head:
@@ -212,8 +229,13 @@ init:
 		#Si el free fue exitoso, devuelve 1 en $v0
 		li $v0 1
 
-	_endFree:
+	lw $t0, availableSpace #t0: espacio disponible
+	mul $t4, $t4, 4
+	add $t0, $t0, $t4    #t0: espacio disponible + espacio liberado
+	sw $t0, availableSpace # Actualizamos el tamaño disponible
 	
+	_endFree:
+
 .end_macro
 
 

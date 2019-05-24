@@ -1,6 +1,6 @@
 .text
 
-	addi $a0, $zero, 20
+	addi $a0, $zero, 20 
 	jal init
 	
 	addi $a0, $zero, 16
