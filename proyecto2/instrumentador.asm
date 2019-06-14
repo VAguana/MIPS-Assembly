@@ -1,4 +1,5 @@
 .data
+	.globl instrumentar
 	count: .word 0
 
 .macro isAdd($pos)
@@ -69,13 +70,42 @@
 .end_macro
 
 instrumentar:
-
-
-
-
+	# Esta funcion instrumenta un programa cuya direccion 
+	# de inicio esta en a0. Se asume que en cada programa
+	# a instrumentar, al final, se encuentra la misma can
+	# tidad de de NOP que de instrucciones add, para tener
+	# suficiente espacio para las instrucciones break.
 	
-.text
-	li $v0, 10
-	syscall
+	# t1: indice para iterar sobre el programa 
+	# t2: contador de instrucciones
+	# Primero vamos a necesitar saber que tan largo es el 
+	# programa:
+	
+	# inicializamos t2:
+	addi $t2,$zero, 0
+	
+	# Inicializamos t1:
+	add $t1, $zero, $a0
+	
+	# Inicializamos v0:
+	li $v0, 0
+	
+	#vamos a contar cuantas instrucciones tiene 
+	While_t1_not_syscall10:
+		beq $v0, 1, end_while_t1NS10 # v0 == syscall 10? exit.
+		
+		addi $t2, $t2, 1 # Incrementamos el contador de instrucciones
+		
+		isSyscall10($t1) # Verificamos si la instruccion actual es un syscall 10
+		
+		addi $t1, $t1, 4 # Nos movemos 1 instruccion en el programa
+		
+	
+		j While_t1_not_syscall10
+	end_while_t1NS10:
+	
+	j $ra
 
-.include "myprogs.s"
+
+
+.include "myprogstest.asm"
