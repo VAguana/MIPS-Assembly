@@ -3,7 +3,7 @@
 
 
 .text
-	la $a0, PROGS
+	lw $a0, PROGS
 	
 	
 	jal instrumentar
@@ -14,3 +14,4 @@
 	syscall
 
 .include "instrumentador.asm"	
+.include "myprogstest.asm"
