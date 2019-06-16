@@ -21,14 +21,14 @@ m3:	.asciiz "p3\n"
 	.text
 	
 p1:
-x:	
-	beq $zero, $zero, x
 	
-	addi $s0, $s0, 1
-	addi $s0, $s0, 1
-
-	add $s0, $s0, $s0
+x:
 			
+	addi $s0, $s0, 1
+	addi $s0, $s0, 1
+	
+	add $s0, $s0, $s0
+	beq $zero, $zero, x	
 	li $v0, 10
 	syscall
 	
