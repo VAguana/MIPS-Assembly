@@ -66,6 +66,198 @@ __excp:	.word __e0_, __e1_, __e2_, __e3_, __e4_, __e5_, __e6_, __e7_, __e8_, __e
 s1:	.word 0
 s2:	.word 0
 
+### ZONA DE FUNCIONES ###
+
+.macro getBreakCode($brk)
+	# Si $brk es la direccion donde se encuentra un break, 
+	# esta funcion retorna el código con el que fue llamada 
+	# esa instruccion break.
+	
+	#Movemos la direccion a v0
+	add $v0, $zero, $brk
+	
+	#Cargamos la instruccion en v0
+	lw $v0, 0($v0)
+	
+	#Desplazamos los bits de la instruccion
+	srl $v0, $v0, 6
+
+.end_macro
+
+.macro getNextProgram()
+	#Returna el numero del siguiente programa no finalizado.
+	#Si todos los programas han sido finalizados, retorna -1.
+	# s0: inicio del arreglo "finalizados"
+	# s1: iterador del ciclo
+	# s2: indice del ciclo
+	# s3: limite de iteracion
+	# s4:  finalizados[i]
+	
+	lw $s2, current # s2 <- i+1
+	addi $s2, $s2, 1
+	
+	lw $s0, finalizados
+	add $s1, $zero, $zero # s1 <- [0]
+	sll $s2, $s2, 2      # s2 *= 4
+	add $s1, $s1, $s2    # s1 <- [i+1]
+	srl $s2, $s2, 2      # s2 = s2 / 4
+	
+	lw $s3, NUM_PROGS    # $3 <- N			
+	
+	# for(int s2 = i+1; s2 < n; s2++)
+	while_s2_lt_s3:
+		bge $s2, $s3, end_while_s2_lt_s3
+		
+		lw $s4, 0($s1) # s4 <- finalizados[i]
+		
+		# if(finalizados[i]==0)
+		if_program_not_finished:
+			bnez $s4, end_if_program_not_finished
+			
+			#Como este programa es el siguiente no finalizado, lo retornamos
+			add $v0, $zero, $s2
+			
+			#Terminamos la ejecucion
+			j return
+		
+		end_if_program_not_finished:
+		
+	
+		#i+=1
+		addi $s2, $s2, 1
+		addi $s1, $s1, 4
+		j while_s2_lt_s3
+	end_while_s2_lt_s3:
+	
+	# En caso de que aun no hayamos encontrado un programa finalizado, ahora empezamos 
+	# desde atrás
+	lw $s3, current # $s3 <- i
+	
+	li $s2, 0       # s2 <- 0
+	add $s1, $zero, $s0 # s1 <- [0]
+	
+	
+	# for(int s2 = 0, s2 <= i, s2++):
+	while_s2_lt_s3_b:
+		bgt $s2, $s3, end_while_s2_lt_s3_b	
+	
+		lw $s4, 0($s1) # s4 <- finalizados[i]
+		
+		# if(finalizados[i]==0)
+		if_program_not_finished_b:
+			bnez $s4, end_if_program_not_finished_b
+			
+			#Como este programa es el siguiente no finalizado, lo retornamos
+			add $v0, $zero, $s2
+			
+			#Terminamos la ejecucion
+			j return
+		
+		end_if_program_not_finished_b:
+	
+		#i+=1
+		addi $s2, $s2, 1
+		addi $s1, $s1, 4
+		j while_s2_lt_s3_b
+	end_while_s2_lt_s3_b:
+	
+	#Si aun no encontramos uno que no haya finalizado, es que terminamos:
+	li $v0, -1	
+	
+	return:
+.end_macro
+
+
+.macro getPrevProgram()
+	#Returna el numero del siguiente programa no finalizado.
+	#Si todos los programas han sido finalizados, retorna -1.
+	# s0: inicio del arreglo "finalizados"
+	# s1: iterador del ciclo
+	# s2: indice del ciclo
+	# s3: limite de iteracion
+	# s4:  finalizados[i]
+	
+	lw $s2, current # s2 <- i-1
+	subi $s2, $s2, 1
+	
+	lw $s0, finalizados
+	add $s1, $zero, $zero # s1 <- [0]
+	sll $s2, $s2, 2      # s2 *= 4
+	add $s1, $s1, $s2    # s1 <- [i-1]
+	srl $s2, $s2, 2      # s2 = s2 / 4
+	
+	li $s3, 0    # $3 <- 0			
+	
+	# for(int s2 = i-1; s2 >= 0; s2--)
+	while_s2_gt_s3:
+		ble $s2, $s3, end_while_s2_gt_s3
+		
+		lw $s4, 0($s1) # s4 <- finalizados[i]
+		
+		# if(finalizados[i]==0)
+		if_program_not_finished:
+			bnez $s4, end_if_program_not_finished
+			
+			#Como este programa es el siguiente no finalizado, lo retornamos
+			add $v0, $zero, $s2
+			
+			#Terminamos la ejecucion
+			j return
+		
+		end_if_program_not_finished:
+		
+	
+		#i+=1
+		subi $s2, $s2, 1
+		subi $s1, $s1, 4
+		j while_s2_gt_s3
+	end_while_s2_gt_s3:
+	
+	# En caso de que aun no hayamos encontrado un programa finalizado, ahora empezamos 
+	# desde atrás
+	lw $s3, current # $s3 <- i
+	
+	li $s2, NUM_PROGS       # s2 <- n-1
+	subi $s2, $s2, 1
+	
+	add $s1, $zero, $s0 # s1 <- [n-1]
+	sll $s2, $s2, 2
+	add $s1, $s1, $s2
+	srl $s2, $s2, 2
+	
+	# for(int s2 = n-1, s2 >= i, s2--):
+	while_s2_gt_s3_b:
+		blt $s2, $s3, end_while_s2_gt_s3_b	
+	
+		lw $s4, 0($s1) # s4 <- finalizados[i]
+		
+		# if(finalizados[i]==0)
+		if_program_not_finished_c:
+			bnez $s4, end_if_program_not_finished_c
+			
+			#Como este programa es el siguiente no finalizado, lo retornamos
+			add $v0, $zero, $s2
+			
+			#Terminamos la ejecucion
+			j return
+		
+		end_if_program_not_finished_c:
+	
+		#i+=1
+		subi $s2, $s2, 1
+		subi $s1, $s1, 4
+		j while_s2_gt_s3_b
+	end_while_s2_gt_s3_b:
+	
+	#Si aun no encontramos uno que no haya finalizado, es que terminamos:
+	li $v0, -1	
+	
+	return:
+.end_macro
+
+
+#########################
+
 # This is the exception handler code that the processor runs when
 # an exception occurs. It only prints some information about the
 # exception, but can server as a model of how to write a handler.
@@ -197,6 +389,13 @@ __eoth:
 	################################################################
 	
 	.data
+	
+	finalizados: .word 0 #Aquí llevaremos la cuenta de qué programas ya finalizaron su ejecución
+	adds: .word 0 # Aquí llevamos la cuenta de cuantos adds lleva cada programa
+	backup: .word 0 # Aqui esta la direccion del arreglo que contiene las direcciones de los 
+			# arreglos que contienen el backup de los registros de uso general
+			 
+	current: .word 0 # Es el indice del programa actualmente en ejecucion. (i)
 
 	################################################################
 	##
@@ -209,11 +408,69 @@ __eoth:
 	################################################################
 
 	.text
+	
 	.globl main
 main:
+	#Inicializamos:
+	#Cargamos en a0 la cantidad de programas:
+	lw $a0, NUM_PROGS
+	# a0 *= 4:
+	sll $a0, $a0, 2
+	#Creamos el arreglo de finalizados:
+	li $v0, 9
+	syscall
+	#finalizados = new int[n]
+	sw $v0, finalizados
+	
+	#Creamos el arreglo de adds:
+	li $v0, 9
+	syscall
+	#adds = new int[n]
+	sw $v0, adds	
+	  
+	#Creamos el arreglo de backup:
+	li $v0, 9
+	syscall
+	#backup = new int[n]
+	sw $v0, backup
+	
+	#Vamos a llenar el arreglo de backup
+	#Movemos la direccion de backup a un registro:
+	# t0: iterador del arreglo
+	# t1: indice de iteracion
+	# t2: limite de iteracion
+	# a0: espacio necesario para cada arreglo de registros
+	
+	lw $t0, backup
+	li $t1, 0
+	lw $t2, NUM_PROGS 		
+	li $a0, 84 # a0 <- 21*4
+	
+	# while(t1<t2)
+	while_t1_lt_t2:
+	bge $t1,$t2, end_while_t1_lt_t2
+		#Creamos el arreglo de backUp del programa i 
+		li $v0, 9
+		syscall
+		
+		#backup[i] <- new int[32]
+		sw $v0, 0($t0)
+	
+		# i += 1
+		addi $t0, $t0, 4
+		addi $t1, $t1, 1	
+	j while_t1_lt_t2
+	end_while_t1_lt_t2:
+	
+	# FIN DE INICIALIZACION
+	
+	
+
 	lw $t1, PROGS 
-	jr $t1
+	#jr $t1
 	
 fin:
 	li $v0 10
 	syscall			# syscall 10 (exit)
+
+.include "myprogs.s"
