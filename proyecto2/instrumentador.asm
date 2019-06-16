@@ -1,3 +1,93 @@
+.macro shortToNormal($val)
+	#recibe un numero en complemento 2 de 16 bits en el 
+	#registro $val
+	# y lo pasa a complemento 2 de 32 bits
+	# Guardamos los t, puesto que esta funcion se utiliza 
+	# en otras funciones
+	sw $t0, 0($sp)
+	subi $sp, $sp, 4 
+	sw $t1, 0($sp)
+	subi $sp, $sp, 4
+
+
+	
+	#el número en un registro:
+	add $t0, $zero, $val
+	
+	#Revisamos si es negativo, si no lo es, el ńúmero permanece igual
+	andi $t1, $t0, 32768 # Quitamos todos los bits menos el 16
+	beqz $t1, return #como es positivo, se queda igual
+	
+	#como es negativo, primero hay que convertirlo:
+	subi $t0, $t0, 1
+	ori $t0, $t0, 4294901760 #Ponemos todos los bits previos al bit 16 encendidos
+	not $t0, $t0  #Anulamos el not previo. En este punto, tenemos el valor absoluto 
+		      #del numero que tenemos
+	#convertimos a complemento 2
+	not $t0, $t0
+	addi $t0, $t0, 1
+	
+	return:
+	add $v0, $zero, $t0
+	
+	#Restauramos los registros:
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)
+
+.end_macro
+
+.macro setOffset($pos, $val)
+	#Cambia el offset de salto del beq almacenado en la posicion
+	# $pos por el especificado en el registro $val
+	# guardamos el $s0:
+	sw $s0, 0($sp)
+	subi $sp, $sp, 4
+	#Guardamos la posicion en $t0:
+	add $t0, $zero, $pos
+	
+	#Guardamoas el offset en s0:
+	add $s0,$zero, $val
+	
+	#Cargamos la instruccion en $v0
+	lw $v0, 0($t0)
+	
+	#Eliminamos los primeros 16 bits:
+	andi $v0, $v0, -65536
+	
+	
+	#Eliminamos los últimos 16 bits (lo convertimos en short)
+	andi $s0, $s0, 65535
+	
+	#Añadimos el offset a la instruccion:
+	or $v0, $v0, $s0
+	
+	#Restauramos la instruccion a su posicion correspondiente:
+	sw $v0, 0($t0)
+	
+	
+	#restauramos los registros usados:
+	addi $sp, $sp, 4
+	lw $s0, 0($sp)
+.end_macro
+
+.macro getOffset($pos)
+	# Dado un beq alojado en la posicion $pos, devuelve el offset
+	# al que esta destinado a saltar dicho beq
+	
+	#Guardamos la posicion en $t0:
+	add $t0, $zero, $pos
+	
+	#Cargamos la instruccion en $v0
+	lw $v0, 0($t0)
+	
+	#Eliminamos todos los bits que no sean los primeros 16:
+	andi $v0, $v0, 65535
+	
+	#pasamos  el valor obtenido a longitud de 32 bits:
+	shortToNormal($v0)
+.end_macro
 
 .macro isAdd($pos)
 	# Determina si una instrucción en la posicion "pos" es una instruccion
@@ -71,6 +161,9 @@ instrumentar:
 	# a0:
 	sw $a0, 0($sp)
 	subi $sp, $sp, 4
+	sw $ra, 0($sp)
+	subi $sp, $sp, 4
+	
 
 	# Esta funcion instrumenta un programa cuya direccion 
 	# de inicio esta en a0. Se asume que en cada programa
@@ -247,7 +340,7 @@ instrumentar:
 		j while_t6_bget_zero
 	end_while_t6_bget_zero:		
 	
-	# /// FASE 4 ///
+	# /// FASE 4: CORREGIR ///
 	
 	# Ahora tenemos que recorrer el programa buscando los beq para corregir sus offset
 	# $t4: indice del programa
@@ -274,6 +367,7 @@ instrumentar:
 			
 			#Ahora en t8 vamos a poner la dirección a la que salta el beq
 			add $t8, $t5, $zero
+			sll $v0, $v0, 2 #v0 *= 4
 			sub $t8, $t8, $v0 # $t8 = i - program[i].offset
 
 			#Cargamos en t9 conteo[i - program[i].offset]
@@ -281,7 +375,6 @@ instrumentar:
 			
 			#Configuramos el nuevo valor de offset en $t9 
 			sub $t9, $t7, $t9 # $t9 <- conteo[i] - conteo[i-program[i].offset]
-			sll $t9, $t9, 2   # $t9 <- t9 *= 4
 			
 			add $v0, $v0, $t9
 			
@@ -306,8 +399,11 @@ instrumentar:
 			
 	#Restauramos los registros que vamos a utilizar
 	addi $sp, $sp, 4	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4	
 	lw $a0, 0($sp)
 	
+	#return:
 	jr $ra
 
 .data
