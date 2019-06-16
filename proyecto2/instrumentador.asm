@@ -367,16 +367,18 @@ instrumentar:
 			
 			#Ahora en t8 vamos a poner la dirección a la que salta el beq
 			add $t8, $t5, $zero
+
 			sll $v0, $v0, 2 #v0 *= 4
-			sub $t8, $t8, $v0 # $t8 = i - program[i].offset
+			add $t8, $t8, $v0 # $t8 = i + program[i].offset
+			srl $v0, $v0, 2
 
 			#Cargamos en t9 conteo[i - program[i].offset]
-			lw $t9, 0($t8)
+			lw $t9, 4($t8)
 			
 			#Configuramos el nuevo valor de offset en $t9 
 			sub $t9, $t7, $t9 # $t9 <- conteo[i] - conteo[i-program[i].offset]
 			
-			add $v0, $v0, $t9
+			sub $v0, $v0, $t9
 			
 			setOffset($t4, $v0)
 			
