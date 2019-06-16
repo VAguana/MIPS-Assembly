@@ -1,6 +1,4 @@
-.data
-	.globl instrumentar
-	count: .word 0
+
 
 
 .macro isAdd($pos)
@@ -70,46 +68,126 @@
 	seq $v0, $v0, 0x2402000A #v0 <- v0 == 0x2402000A
 .end_macro
 
-wtf:
-	addi $s0, $zero, 2
-	jr $ra
+
+.macro getOffset($pos)
+	# Dado un beq alojado en la posicion $pos, devuelve el offset
+	# al que esta destinado a saltar dicho beq
 	
-instrumentar:
-	# Esta funcion instrumenta un programa cuya direccion 
-	# de inicio esta en a0. Se asume que en cada programa
-	# a instrumentar, al final, se encuentra la misma can
-	# tidad de de NOP que de instrucciones add, para tener
-	# suficiente espacio para las instrucciones break.
+	#Guardamos la posicion en $t0:
+	add $t0, $zero, $pos
 	
-	# t1: indice para iterar sobre el programa 
-	# t2: contador de instrucciones
-	# Primero vamos a necesitar saber que tan largo es el 
-	# programa:
+	#Cargamos la instruccion en $v0
+	lw $v0, 0($t0)
 	
-	# inicializamos t2:
-	addi $t2,$zero, 0
+	#Eliminamos todos los bits que no sean los primeros 16:
+	andi $v0, $v0, 65535
 	
-	# Inicializamos t1:
-	add $t1, $zero, $a0
+	#pasamos  el valor obtenido a longitud de 32 bits:
+	shortToNormal($v0)
+.end_macro
+
+
+
+.macro setOffset($pos, $val)
+	#Cambia el offset de salto del beq almacenado en la posicion
+	# $pos por el especificado en el registro $val
+	# guardamos el $s0:
+	sw $s0, 0($sp)
+	subi $sp, $sp, 4
+	#Guardamos la posicion en $t0:
+	add $t0, $zero, $pos
 	
-	# Inicializamos v0:
-	li $v0, 0
+	#Guardamoas el offset en s0:
+	add $s0,$zero, $val
 	
-	#vamos a contar cuantas instrucciones tiene 
-	While_t1_not_syscall10:
-		beq $v0, 1, end_while_t1NS10 # v0 == syscall 10? exit.
-		
-		addi $t2, $t2, 1 # Incrementamos el contador de instrucciones
-		
-		isSyscall10($t1) # Verificamos si la instruccion actual es un syscall 10
-		
-		addi $t1, $t1, 4 # Nos movemos 1 instruccion en el programa
-		
+	#Cargamos la instruccion en $v0
+	lw $v0, 0($t0)
 	
-		j While_t1_not_syscall10
-	end_while_t1NS10:
+	#Eliminamos los primeros 16 bits:
+	andi $v0, $v0, -65536
 	
-	jr $ra
+	
+	#Eliminamos los últimos 16 bits (lo convertimos en short)
+	andi $s0, $s0, 65535
+	
+	#Añadimos el offset a la instruccion:
+	or $v0, $v0, $s0
+	
+	#Restauramos la instruccion a su posicion correspondiente:
+	sw $v0, 0($t0)
+	
+	
+	#restauramos los registros usados:
+	addi $sp, $sp, 4
+	lw $s0, 0($sp)
+.end_macro
+
+.macro normalToShort($val)
+	#Recibe un numero en el registro $val y lo convierte 
+	#de formato de 32 bits a formato de 16 bits:
+	sw $s0, 0($sp)
+	subi $sp, $sp, 4
+	sw $s1, 0($sp)
+	subi $sp, $sp, 4
+
+	
+	
+	#Guardamos el numero en un registro:
+	add $s0, $zero, $val
+	
+	#Vamos a eliminar todos los bits salvo los primeros 16
+	andi $s0, $s0, 65535
+	
+	#retornamos
+	add $v0, $zero, $s0
+
+	addi $sp, $sp, 4
+	lw $s1, 0($sp)
+	addi $sp, $sp, 4
+	lw $s0, 0($sp)
+	
+.end_macro
+
+.macro shortToNormal($val)
+	#recibe un numero en complemento 2 de 16 bits en el 
+	#registro $val
+	# y lo pasa a complemento 2 de 32 bits
+	# Guardamos los t, puesto que esta funcion se utiliza 
+	# en otras funciones
+	sw $t0, 0($sp)
+	subi $sp, $sp, 4 
+	sw $t1, 0($sp)
+	subi $sp, $sp, 4
+
+
+	
+	#el número en un registro:
+	add $t0, $zero, $val
+	
+	#Revisamos si es negativo, si no lo es, el ńúmero permanece igual
+	andi $t1, $t0, 32768 # Quitamos todos los bits menos el 16
+	beqz $t1, return #como es positivo, se queda igual
+	
+	#como es negativo, primero hay que convertirlo:
+	subi $t0, $t0, 1
+	ori $t0, $t0, 4294901760 #Ponemos todos los bits previos al bit 16 encendidos
+	not $t0, $t0  #Anulamos el not previo. En este punto, tenemos el valor absoluto 
+		      #del numero que tenemos
+	#convertimos a complemento 2
+	not $t0, $t0
+	addi $t0, $t0, 1
+	
+	return:
+	add $v0, $zero, $t0
+	
+	#Restauramos los registros:
+	addi $sp, $sp, 4
+	lw $t1, 0($sp)
+	addi $sp, $sp, 4
+	lw $t0, 0($sp)
+
+.end_macro
+
 
 .text
 	#Vamos a cargar en los s los valores de NUM_PROGS, QUANTUM, y PROGS
@@ -117,14 +195,19 @@ instrumentar:
 	# s1: NUM_PROGS
 	# s2: QUANTUM
 	
+	lw $a0, PROGS
 	
+
+	getOffset($a0)
+	addi $a1, $zero, 4
+	#setOffset($a0, $a1)
+	#getOffset($a0)
 
 	
 	
 	
 	li $v0, 10
-	syscall
-	
+	syscall	
 	 
 	
 
