@@ -202,7 +202,7 @@ s2:	.word 0
 			add $v0, $zero, $s2
 			
 			#Terminamos la ejecucion
-			j return
+			j returnPrev
 		
 		end_if_program_not_finished:
 		
@@ -239,7 +239,7 @@ s2:	.word 0
 			add $v0, $zero, $s2
 			
 			#Terminamos la ejecucion
-			j return
+			j returnPrev
 		
 		end_if_program_not_finished_c:
 	
@@ -252,8 +252,128 @@ s2:	.word 0
 	#Si aun no encontramos uno que no haya finalizado, es que terminamos:
 	li $v0, -1	
 	
-	return:
+	returnPrev:
 .end_macro
+
+.macro storeProgram()
+	#Guarda los registros del programa actual "current" en su correspondiente
+	# espacio de backup.
+	# k0: inicio del espacio del programa actual:
+	# k1: programa actual:
+	
+	lw $k1, current # k1 <- i
+	sll $k1, $k1, 2 # k1 *= 4
+	
+	la $k0, backup	# k0 <- [0]
+	add $k0, $k0, $k1 #k0 <- [i]
+	
+	srl $k1, $k1, 2 # k1 = k1/4
+	
+	lw $k0, 0($k0)  # k0 <- backup[i]
+	
+	# Ahora procedemos a guardar los registros de este programa:
+	sw $v0, 0($k0)
+	sw $v1, 4($k0)
+	sw $a0, 8($k0)	
+	sw $a1, 12($k0)	
+	sw $a2, 16($k0)	
+	sw $a3, 20($k0)	
+	sw $t0, 24($k0)
+	sw $t1, 28($k0)
+	sw $t2, 32($k0)	
+	sw $t3, 36($k0)		
+	sw $t4, 40($k0)		
+	sw $t5, 44($k0)				
+	sw $t6, 48($k0)
+	sw $t7, 52($k0)	
+	sw $s0, 56($k0)
+	sw $s1, 60($k0)	
+	sw $s2, 64($k0)
+	sw $s3, 68($k0)
+	sw $s4, 72($k0)	
+	sw $s5, 76($k0)
+	sw $s6, 80($k0)
+	sw $s7, 84($k0)	
+	sw $t8, 88($k0)	
+	sw $t9, 92($k0)	
+	sw $sp, 96($k0)
+	sw $ra, 100($k0)
+	mfc0 $k1, $14
+	sw $k1, 104($k0) #Donde el programa quedo
+																									
+.end_macro
+
+.macro loadProgram()
+	# Carga los registros del programa actual "current" en su correspondiente
+	# espacio de backup.
+	
+	# k0: inicio del espacio del programa actual:
+	# k1: programa actual:
+	
+	lw $k1, current # k1 <- i
+	sll $k1, $k1, 2 # k1 *= 4
+	
+	la $k0, backup	# k0 <- [0]
+	add $k0, $k0, $k1 #k0 <- [i]
+	
+	srl $k1, $k1, 2 # k1 = k1/4
+	
+	lw $k0, 0($k0)  # k0 <- backup[i]
+	
+	# Ahora procedemos a guardar los registros de este programa:
+	lw $v0, 0($k0)
+	lw $v1, 4($k0)
+	lw $a0, 8($k0)	
+	lw $a1, 12($k0)	
+	lw $a2, 16($k0)	
+	lw $a3, 20($k0)	
+	lw $t0, 24($k0)
+	lw $t1, 28($k0)
+	lw $t2, 32($k0)	
+	lw $t3, 36($k0)		
+	lw $t4, 40($k0)		
+	lw $t5, 44($k0)				
+	lw $t6, 48($k0)
+	lw $t7, 52($k0)	
+	lw $s0, 56($k0)
+	lw $s1, 60($k0)	
+	lw $s2, 64($k0)
+	lw $s3, 68($k0)
+	lw $s4, 72($k0)	
+	lw $s5, 76($k0)
+	lw $s6, 80($k0)
+	lw $s7, 84($k0)	
+	lw $t8, 88($k0)	
+	lw $t9, 92($k0)	
+	lw $sp, 96($k0)
+	lw $ra, 100($k0)
+	lw $k1, 104($k0) #Donde el programa quedo
+	mtc0 $k1, $14	
+																								
+.end_macro
+
+.macro brk0x20()
+	#Incrementa el contador adds[i] en uno cuando se 
+	#detecta un break 0x20
+	# k0: el índice del arreglo adds
+	# k1: adds[i]
+	
+	lw $k0, adds # k0 <- [0]
+	lw $k1, current # k1 <- i
+	
+	sll $k1, $k1, 2 # k1 *= 4
+	
+	add $k0, $k0, $k1 # k0 <- [i]
+	
+	lw $k1, 0($k0) # k1 <- adds[i]
+	
+	addi $k1, $k1, 1 # adds[i] += 1
+	sw $k1, 0($k0)
+	
+	
+.end_macro
+
+
 
 
 #########################
@@ -444,7 +564,7 @@ main:
 	lw $t0, backup
 	li $t1, 0
 	lw $t2, NUM_PROGS 		
-	li $a0, 84 # a0 <- 21*4
+	li $a0, 108 # a0 <- 27*4
 	
 	# while(t1<t2)
 	while_t1_lt_t2:
@@ -462,6 +582,32 @@ main:
 	j while_t1_lt_t2
 	end_while_t1_lt_t2:
 	
+	# Ahora tenemos que intrumentar los programas dados:
+	
+	# t0: iterador del arreglo
+	# t1: indice de iteracion
+	# t2: limite de iteracion
+	# a0: direccion de inicio del siguiente programa
+	
+	la $t0, PROGS
+	li $t1, 0
+	lw $t2, NUM_PROGS 		
+
+	
+	# while(t1<t2)
+	while_t1_lt_t2b:
+	bge $t1,$t2, end_while_t1_lt_t2b
+		# a0 = PROGS[i]
+		lw $a0, 0($t0)
+		
+		jal instrumentar
+	
+		# i += 1
+		addi $t0, $t0, 4
+		addi $t1, $t1, 1	
+	j while_t1_lt_t2b
+	end_while_t1_lt_t2b:
+	
 	# FIN DE INICIALIZACION
 	
 	
@@ -474,3 +620,4 @@ fin:
 	syscall			# syscall 10 (exit)
 
 .include "myprogs.s"
+.include "instrumentador.asm"
