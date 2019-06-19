@@ -61,7 +61,7 @@ __e30_:	.asciiz	"  [Cache]"
 __e31_:	.asciiz	""
 
 finProg1: .asciiz "El programa "
-finProg2: .asciiz "ha finalizado"
+finProg2: .asciiz " ha finalizado.\n"
 __excp:	.word __e0_, __e1_, __e2_, __e3_, __e4_, __e5_, __e6_, __e7_, __e8_, __e9_
 	.word __e10_, __e11_, __e12_, __e13_, __e14_, __e15_, __e16_, __e17_, __e18_,
 	.word __e19_, __e20_, __e21_, __e22_, __e23_, __e24_, __e25_, __e26_, __e27_,
@@ -375,9 +375,66 @@ s2:	.word 0
 .end_macro
 
 .macro brk0x10()
+	# Cuando se detecta un break 0x10 significa que el programa current
+	# terminó, así que este se debe marcar como finalizado y cargar el siguiente
+	# pograma. Si no se ha encontrado ningún programa para finalizar, entonces se 
+	
 	
 
 .end_macro
+
+
+.macro finalizarPrograma()
+	#Esta funcion termina la ejecución del programa "current"
+	#Tenemos que marcar este programa como finalizado e imprimir 
+	# que ha finalizado
+	# $t0: finalizados[i]
+	# $t1: current (indice del programa actual)
+	
+	#Guardamos los registros de uso general:
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	sw $v0, 0($sp)
+	subi $sp, $sp, 4
+	
+	
+	#Guardamos en $t0 el indice del arreglo que se refiere a finalizados:
+	lw $t0, finalizados #Direccion de inicio de finalizados [0]
+	
+	lw $t1, current     # t1 <- i
+	sll $t1, $t1, 2
+	
+	add $t0, $t0, $t1 #$t0: [i]
+	li $t1, 1         #$t1 <- 1
+
+	#Marcar como finalizado:
+		
+	sw $t1, 0($t0) #finalizados[i] <- 1
+	
+	#Hay que imprimir que el programa ha finalizado:
+	la $a0, finProg1  #print(finProg1)
+	li $v0, 4
+	syscall 
+	
+	lw $a0, current  #print(i)
+	li $v0, 1          
+	syscall
+	
+	la $a0, finProg2  #println(finProg2)
+	li $v0, 4
+	syscall 
+	
+	
+		
+	#Restauramos los registros que utilizamos:
+	addi $sp, $sp, 4
+	lw $v0, 0($sp)	
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)	
+	
+		
+.end_macro
+
 
 
 #########################
@@ -655,7 +712,7 @@ main:
 		
 		#Como la dirección de retorno no es correcta, hay que actualizarla:
 		lw $t3, 0($t0) # $t3 <- backup
-		lw $t3, 0($t0) # $t3 <- backup[i]
+		
 		
 		lw $t5, 0($t4) #t5 <- direccion de inicio del programa i
 	
@@ -674,7 +731,6 @@ main:
 	# FIN DE INICIALIZACION
 	
 	
-
 	#lw $t1, PROGS 
 	#jr $t1
 	
