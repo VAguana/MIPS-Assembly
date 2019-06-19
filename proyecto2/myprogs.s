@@ -29,7 +29,7 @@ p1:
 	la $a0 m1
 	syscall
 	
-	b p1
+	beq $zero, $zero, p1
 
 	li $v0, 10
         syscall
@@ -40,7 +40,7 @@ p2:
 	la $a0 m2
 	syscall
 	
-	b p2
+	beq $zero, $zero, p2
 
         add $t1, $t1, $t1
 	
@@ -53,7 +53,7 @@ p3:
 	la $a0 m3
 	syscall
 
-	b p3
+	beq $zero, $zero, p3
 
 	li $v0, 10
 	syscall
