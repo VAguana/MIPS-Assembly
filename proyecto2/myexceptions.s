@@ -59,6 +59,9 @@ __e28_:	.asciiz	""
 __e29_:	.asciiz	""
 __e30_:	.asciiz	"  [Cache]"
 __e31_:	.asciiz	""
+
+finProg1: .asciiz "El programa "
+finProg2: .asciiz "ha finalizado"
 __excp:	.word __e0_, __e1_, __e2_, __e3_, __e4_, __e5_, __e6_, __e7_, __e8_, __e9_
 	.word __e10_, __e11_, __e12_, __e13_, __e14_, __e15_, __e16_, __e17_, __e18_,
 	.word __e19_, __e20_, __e21_, __e22_, __e23_, __e24_, __e25_, __e26_, __e27_,
@@ -265,11 +268,9 @@ s2:	.word 0
 	sll $k1, $k1, 2 # k1 *= 4
 	
 	la $k0, backup	# k0 <- [0]
+	lw $k0, 0($k0)  # k0 <- backup[i]	
 	add $k0, $k0, $k1 #k0 <- [i]
-	
-	srl $k1, $k1, 2 # k1 = k1/4
-	
-	lw $k0, 0($k0)  # k0 <- backup[i]
+	lw $k0, 0($k0)  
 	
 	# Ahora procedemos a guardar los registros de este programa:
 	sw $v0, 0($k0)
@@ -304,6 +305,8 @@ s2:	.word 0
 .end_macro
 
 .macro loadProgram()
+	 
+
 	# Carga los registros del programa actual "current" en su correspondiente
 	# espacio de backup.
 	
@@ -314,11 +317,9 @@ s2:	.word 0
 	sll $k1, $k1, 2 # k1 *= 4
 	
 	la $k0, backup	# k0 <- [0]
+	lw $k0, 0($k0)  # k0 <- backup[i]	
 	add $k0, $k0, $k1 #k0 <- [i]
-	
-	srl $k1, $k1, 2 # k1 = k1/4
-	
-	lw $k0, 0($k0)  # k0 <- backup[i]
+	lw $k0, 0($k0) 
 	
 	# Ahora procedemos a guardar los registros de este programa:
 	lw $v0, 0($k0)
@@ -373,7 +374,10 @@ s2:	.word 0
 	
 .end_macro
 
+.macro brk0x10()
+	
 
+.end_macro
 
 
 #########################
@@ -599,8 +603,24 @@ main:
 	bge $t1,$t2, end_while_t1_lt_t2b
 		# a0 = PROGS[i]
 		lw $a0, 0($t0)
-		
-		jal instrumentar
+
+		#guardamos:
+		sw $t0, 0($sp)
+		subi $sp, $sp, 4
+		sw $t1, 0($sp)
+		subi $sp, $sp, 4
+		sw $t2, 0($sp)
+		subi $sp, $sp, 4
+				
+		#jal instrumentar #Instrumentamos PROGS[i]
+
+		#restauramos:
+		addi $sp, $sp, 4
+		lw $t2, 0($sp)
+		addi $sp, $sp, 4
+		lw $t1, 0($sp)
+		addi $sp, $sp, 4
+		lw $t0, 0($sp)					
 	
 		# i += 1
 		addi $t0, $t0, 4
@@ -608,11 +628,54 @@ main:
 	j while_t1_lt_t2b
 	end_while_t1_lt_t2b:
 	
+	#Ahora tenemos que conservar un estado inicial para que los programas puedan iniciar:
+	# Vamos a iterar por el arreglo de backup y vamos a definir un estado inicial para 
+	# cada programa:
+	
+	# $t0: iterador del ciclo
+	# $t1: indice del ciclo 
+	# $t2: limite de la iteracion.
+	# $t3: indice del programa a almacenar.
+	# $t4: [i] (progs)
+	#
+	lw $t0, backup   # $t0 <- backup
+	li $t1, 0	 # $t1 <- 0
+	lw $t2, NUM_PROGS# $t2 <- n
+	li $t3, 0	 # $t3 <- backup[i]
+	la $t4, PROGS
+	
+	# while(t1<t2)
+	while_t1_lt_t2c:
+	bge $t1,$t2, end_while_t1_lt_t2c
+
+		#para almacenar el programa, vamos a tener que cambiar el current:		
+		sw $t1, current
+		
+		storeProgram()
+		
+		#Como la dirección de retorno no es correcta, hay que actualizarla:
+		lw $t3, 0($t0) # $t3 <- backup
+		lw $t3, 0($t0) # $t3 <- backup[i]
+		
+		lw $t5, 0($t4) #t5 <- direccion de inicio del programa i
+	
+		sw $t5, 104($t3) #Guardamos la dirección de inicio del programa, donde 
+				 #debe iniciar al ser llamado
+	
+		# i += 1
+		addi $t0, $t0, 4
+		addi $t1, $t1, 1
+		addi $t4, $t4, 4	
+	j while_t1_lt_t2c
+	end_while_t1_lt_t2c:
+	
+	sw $zero, current
+	
 	# FIN DE INICIALIZACION
 	
 	
 
-	lw $t1, PROGS 
+	#lw $t1, PROGS 
 	#jr $t1
 	
 fin:
