@@ -64,7 +64,7 @@ finProg1: .asciiz "El programa "
 finProg2: .asciiz " ha finalizado.\n"
 finalizado: .asciiz " (Finalizado) \n"
 noFinalizado: .asciiz " (No Finalizado)\n"
-programa: .asciiz "Programa "
+programa: .asciiz "   Programa "
 nroAdd: .asciiz "         Numero de add: "
 shutdownMsg: .asciiz "La maquina ha sido apagada. Status de los programas: \n"
 endl: .asciiz "\n"
@@ -411,7 +411,8 @@ s2:	.word 0
 
 	
 	finishedAllProgs:
-		finalizar()
+		li $v0, 10
+		syscall 
 				
 	return_brk0x10:
 
@@ -514,34 +515,32 @@ s2:	.word 0
 	# $t1: indice de iteración 
 	# $t2: limite de iteracion
 	
-	# Finalizamos silenciosamente: Pese a que esta etapa no es funcionalmente
-	# necesaria, lo hacemos para que las estructuras terminen de forma consistente. 
-	# Esto se puede suprimir para buscar optimización si es necesario.
-	
-	# Empezamos iterando desde el 0:
-	sw $zero, current
-	
-	li $t1, 0     # t1 <- 1
-	lw $t2, NUM_PROGS  # $t2 <- n
-	
 	#Imprimimos que la máquina ha sido apagada:
 	la $a0, shutdownMsg
 	li $v0, 4
 	syscall
 	
-	#while(t1<t2)
-	while_SD_t1_lt_t2:
-	bge $t1, $t2, end_while_SD_t1_lt_t2
-	
-	
-	# i+= 1
-	addi $t1, $t1, 1
-	sw $t1, current # current += 1
-	addi $t0, $t0, 4
-	j while_SD_t1_lt_t2
-	end_while_SD_t1_lt_t2:
 	
 	# Ahora vamos a imprimir cuántos adds lleva cada programa
+	# t0: indice del ciclo
+	# t1: limite de iteracion
+	li $t0, 0
+	lw $t1, NUM_PROGS
+	sw $zero, current
+	
+	while_SD_t0_lt_t1:
+	bge $t0, $t1, end_while_SD_t0_lt_t1
+		#imprimimos los adds del programa i
+		printAdds()	
+	
+	#i+=1
+	addi $t0, $t0, 1
+	sw $t0, current
+	j while_SD_t0_lt_t1
+	end_while_SD_t0_lt_t1:
+	
+	
+	
 	
 .end_macro
 
@@ -905,8 +904,7 @@ main:
 	sw $zero, current
 	
 	# FIN DE INICIALIZACION
-	finalizarPrograma_q()
-	printAdds()
+	shutdown()
 	
 	#lw $t1, PROGS 
 	#jr $t1
