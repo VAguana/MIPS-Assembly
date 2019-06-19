@@ -62,6 +62,13 @@ __e31_:	.asciiz	""
 
 finProg1: .asciiz "El programa "
 finProg2: .asciiz " ha finalizado.\n"
+finalizado: .asciiz " (Finalizado) \n"
+noFinalizado: .asciiz " (No Finalizado)\n"
+programa: .asciiz "Programa "
+nroAdd: .asciiz "         Numero de add: "
+shutdownMsg: .asciiz "La maquina ha sido apagada. Status de los programas: \n"
+endl: .asciiz "\n"
+
 __excp:	.word __e0_, __e1_, __e2_, __e3_, __e4_, __e5_, __e6_, __e7_, __e8_, __e9_
 	.word __e10_, __e11_, __e12_, __e13_, __e14_, __e15_, __e16_, __e17_, __e18_,
 	.word __e19_, __e20_, __e21_, __e22_, __e23_, __e24_, __e25_, __e26_, __e27_,
@@ -379,7 +386,34 @@ s2:	.word 0
 	# terminó, así que este se debe marcar como finalizado y cargar el siguiente
 	# pograma. Si no se ha encontrado ningún programa para finalizar, entonces se 
 	
+	#Guardamos los registros de uso general:
+	sw $v0, 0($sp)
+	subi $sp, $sp, 4
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4	
 	
+	
+	#Finalizamos el programa current.
+	finalizarPrograma()
+	
+	#Tenemos que actualizar el programa actual y buscar un programa que no haya 
+	#sido finalizado.
+	getNextProgram() #v0 <- i.next
+	
+	#Tenemos que verificar si todos los programas terminaron:
+	bltz $v0, finishedAllProgs
+
+	#Si no hemos terminado todos los programas, cargamos el siguiente
+	sw $v0, current
+	loadProgram()
+		
+	j return_brk0x10
+
+	
+	finishedAllProgs:
+		finalizar()
+				
+	return_brk0x10:
 
 .end_macro
 
@@ -434,6 +468,148 @@ s2:	.word 0
 	
 		
 .end_macro
+
+
+.macro finalizarPrograma_q()
+	#Esta funcion termina la ejecución del programa "current"
+	#Tenemos que marcar este programa como finalizado y no imprime (quiet)
+	# que ha finalizado
+	# $t0: finalizados[i]
+	# $t1: current (indice del programa actual)
+	
+	#Guardamos los registros de uso general:
+	sw $a0, 0($sp)
+	subi $sp, $sp, 4
+	sw $v0, 0($sp)
+	subi $sp, $sp, 4
+	
+	
+	#Guardamos en $t0 el indice del arreglo que se refiere a finalizados:
+	lw $t0, finalizados #Direccion de inicio de finalizados [0]
+	
+	lw $t1, current     # t1 <- i
+	sll $t1, $t1, 2
+	
+	add $t0, $t0, $t1 #$t0: [i]
+	li $t1, 1         #$t1 <- 1
+
+	#Marcar como finalizado:
+		
+	sw $t1, 0($t0) #finalizados[i] <- 1
+	
+	
+		
+	#Restauramos los registros que utilizamos:
+	addi $sp, $sp, 4
+	lw $v0, 0($sp)	
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)		
+		
+.end_macro
+
+.macro shutdown()
+	# Finaliza silenciosamente todos los programas que no hayan sido finalizados, imprime
+	# la cantidad de adds que consiguó cada uno. 
+
+	# $t1: indice de iteración 
+	# $t2: limite de iteracion
+	
+	# Finalizamos silenciosamente: Pese a que esta etapa no es funcionalmente
+	# necesaria, lo hacemos para que las estructuras terminen de forma consistente. 
+	# Esto se puede suprimir para buscar optimización si es necesario.
+	
+	# Empezamos iterando desde el 0:
+	sw $zero, current
+	
+	li $t1, 0     # t1 <- 1
+	lw $t2, NUM_PROGS  # $t2 <- n
+	
+	#Imprimimos que la máquina ha sido apagada:
+	la $a0, shutdownMsg
+	li $v0, 4
+	syscall
+	
+	#while(t1<t2)
+	while_SD_t1_lt_t2:
+	bge $t1, $t2, end_while_SD_t1_lt_t2
+	
+	
+	# i+= 1
+	addi $t1, $t1, 1
+	sw $t1, current # current += 1
+	addi $t0, $t0, 4
+	j while_SD_t1_lt_t2
+	end_while_SD_t1_lt_t2:
+	
+	# Ahora vamos a imprimir cuántos adds lleva cada programa
+	
+.end_macro
+
+.macro printAdds()
+	# Imprime el mensaje correspondiente a la cantidad de adds del programa
+	# actual y si el programa ya finalizó.
+	# $t0: finalizado[i]
+	
+	
+	#Imprimimos "Programa"
+	la $a0, programa
+	li $v0, 4
+	syscall
+	
+	#Imprimimos el programa actual:
+	lw $a0, current
+	addi $a0, $a0, 1
+	li $v0, 1
+	syscall
+	subi $a0, $a0, 1
+		
+	#Ahora tenemos que ver si el programo ha finalizado o no.
+	lw $t0, finalizados #t0: [0]
+	sll $a0, $a0, 2
+	add $t0, $t0, $a0   #t0: [i]
+	lw $t0, 0($t0)      #t0: finalizados[i]
+	
+	if_t0_gt_0:
+	beqz $t0, if_t0_eq_0
+		#Imprimimos que este programa fue finalizado
+		la $a0, finalizado
+		li $v0, 4
+		syscall
+	
+	
+	j end_if_t0_eq_0
+	if_t0_eq_0:
+
+		#Imprimimos que este programa no fue finalizado
+		la $a0, noFinalizado
+		li $v0, 4
+		syscall	
+	
+	end_if_t0_eq_0:
+	
+	#print("numero de adds: ")
+	la $a0, nroAdd
+	li $v0, 4
+	syscall
+	
+	# Imprimimos numero de adds
+	# $t0: inicio del arreglo de adds:
+	# $a0: current
+	lw $a0, current
+	sll $a0, $a0, 2 
+	lw $t0, adds
+	add $t0, $t0, $a0 
+	
+	lw $a0, 0($t0) # $t0 <- adds[current]
+	li $v0, 1  #print(adds[current])
+	syscall
+	
+	la $a0, endl #imprimimos un salto de linea
+	li $v0, 4
+	syscall
+	
+	
+.end_macro 
 
 
 
@@ -729,7 +905,8 @@ main:
 	sw $zero, current
 	
 	# FIN DE INICIALIZACION
-	
+	finalizarPrograma_q()
+	printAdds()
 	
 	#lw $t1, PROGS 
 	#jr $t1
