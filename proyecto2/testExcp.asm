@@ -951,7 +951,7 @@ main:
 	#shutdown()
 	
 	lw $t1, PROGS 
-	jr $t1
+	#jr $t1
 	
 fin:
 	li $v0 10
