@@ -706,52 +706,18 @@ s2:	.word 0
 	
 		#restauramos los registros que usamos:
 		lw $s1, temp1
+		lw $s0, temp0
+		mfc0 $k0 $14		# Bump EPC register
+		addiu $k0 $k0 4		# Skip faulting instruction
+				# (Need to handle delayed branch case here)
+		mtc0 $k0 $14
+		eret
 	end_if_Excp_is_brk:
 	
 	#restauramos lo que usamos
 	lw $s0, temp0
 
-	# Print information about exception.
-	#
-	li $v0 4		# syscall 4 (print_str)
-	la $a0 __m1_
-	syscall
-
-	li $v0 1		# syscall 1 (print_int)
-	srl $a0 $k0 2		# Extract ExcCode Field
-	andi $a0 $a0 0x1f
-	syscall
-
-	li $v0 4		# syscall 4 (print_str)
-	andi $a0 $k0 0x3c
-	lw $a0 __excp($a0)
-	nop
-	syscall
-
-	bne $k0 0x18 ok_pc	# Bad PC exception requires special checks
-	nop
-
-	mfc0 $a0 $14		# EPC
-	andi $a0 $a0 0x3	# Is EPC word-aligned?
-	beq $a0 0 ok_pc
-	nop
-
-	li $v0 10		# Exit on really bad PC
-	syscall
-
-ok_pc:
-	li $v0 4		# syscall 4 (print_str)
-	la $a0 __m2_
-	syscall
-
-	srl $a0 $k0 2		# Extract ExcCode Field
-	andi $a0 $a0 0x1f
-	bne $a0 0 ret		# 0 means exception was an interrupt
-	nop
-
-# Interrupt-specific code goes here!
-# Don't skip instruction at EPC since it has not executed.
-
+	
 
 ret:
 # Return from (non-interrupt) exception. Skip offending instruction
