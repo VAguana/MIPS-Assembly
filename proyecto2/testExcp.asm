@@ -679,6 +679,15 @@ s2:	.word 0
 			#Llamamos al manejador de esta excepcion
 			brk0x20()
 		
+			#restauramos los registros que usamos:
+			lw $s1, temp1
+			lw $s0, temp0
+			#Configuramos la direccion de salto:
+			mfc0 $k0 $14		# Bump EPC register
+			addiu $k0 $k0 4		# Skip faulting instruction
+						# (Need to handle delayed branch case here)
+			mtc0 $k0 $14
+			
 			j end_break_if
 		if_break0x10:
 			li $s0, 0x10
@@ -686,7 +695,11 @@ s2:	.word 0
 		
 			brk0x10()
 		
-			j end_break_if		
+			#restauramos los registros que usamos:
+			lw $s1, temp1
+			lw $s0, temp0
+			
+			j end_break_if
 		else_if_break:
 			add $s0, $zero, $v0 # s0 <- código break obtenido
 			la $a0, unknownBrk
@@ -707,10 +720,7 @@ s2:	.word 0
 		#restauramos los registros que usamos:
 		lw $s1, temp1
 		lw $s0, temp0
-		mfc0 $k0 $14		# Bump EPC register
-		addiu $k0 $k0 4		# Skip faulting instruction
-				# (Need to handle delayed branch case here)
-		mtc0 $k0 $14
+				
 		eret
 	end_if_Excp_is_brk:
 	
@@ -718,6 +728,46 @@ s2:	.word 0
 	lw $s0, temp0
 
 	
+# Print information about exception.
+	#
+	li $v0 4		# syscall 4 (print_str)
+	la $a0 __m1_
+	syscall
+
+	li $v0 1		# syscall 1 (print_int)
+	srl $a0 $k0 2		# Extract ExcCode Field
+	andi $a0 $a0 0x1f
+	syscall
+
+	li $v0 4		# syscall 4 (print_str)
+	andi $a0 $k0 0x3c
+	lw $a0 __excp($a0)
+	nop
+	syscall
+
+	bne $k0 0x18 ok_pc	# Bad PC exception requires special checks
+	nop
+
+	mfc0 $a0 $14		# EPC
+	andi $a0 $a0 0x3	# Is EPC word-aligned?
+	beq $a0 0 ok_pc
+	nop
+
+	li $v0 10		# Exit on really bad PC
+	syscall
+
+ok_pc:
+	li $v0 4		# syscall 4 (print_str)
+	la $a0 __m2_
+	syscall
+
+	srl $a0 $k0 2		# Extract ExcCode Field
+	andi $a0 $a0 0x1f
+	bne $a0 0 ret		# 0 means exception was an interrupt
+	nop
+
+# Interrupt-specific code goes here!
+# Don't skip instruction at EPC since it has not executed.
 
 ret:
 # Return from (non-interrupt) exception. Skip offending instruction
@@ -948,10 +998,10 @@ main:
 	sw $zero, current
 	
 	# FIN DE INICIALIZACION
-	#shutdown()
+
 	
 	lw $t1, PROGS 
-	#jr $t1
+	jr $t1
 	
 fin:
 	li $v0 10
