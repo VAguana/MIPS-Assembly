@@ -67,6 +67,7 @@ noFinalizado: .asciiz " (No Finalizado)\n"
 programa: .asciiz "   Programa "
 nroAdd: .asciiz "         Numero de add: "
 shutdownMsg: .asciiz "La maquina ha sido apagada. Status de los programas: \n"
+unknownBrk: .asciiz "Break desconocido: "
 endl: .asciiz "\n"
 
 __excp:	.word __e0_, __e1_, __e2_, __e3_, __e4_, __e5_, __e6_, __e7_, __e8_, __e9_
@@ -415,7 +416,10 @@ s2:	.word 0
 		syscall 
 				
 	return_brk0x10:
-
+	addi $sp, $sp, 4
+	lw $a0, 0($sp)
+	addi $sp, $sp, 4
+	lw $v0, 0($sp)	
 .end_macro
 
 
@@ -649,6 +653,62 @@ s2:	.word 0
 	mfc0 $k0 $13		# Cause register
 	srl $a0 $k0 2		# Extract ExcCode Field
 	andi $a0 $a0 0x1f
+	
+	#Aquí podemos ver qué tipo de excepción fue. Lo que necesitamos es ver si 
+	# a0==9. En caso de que lo sea, tenemos que cargar la instrucción que lo 
+	# genero y verificar qué tipo de break era.
+	#Guardamos t0:
+	sw $s0, temp0
+	#Guardamos el s0 el código que estamos buscando:
+	li $s0, 9 # s0 <- 9
+	if_Excp_is_brk:
+		bne $s0, $a0,end_if_Excp_is_brk
+		#Guardamos los registros que vamos a utilizar:
+		sw $s1, temp1
+		#Como a0==9, entonces la excepcion vino de un break, pero falta ver qué break fue
+		mfc0 $s1, $14 # $s1 <- direccion de la instruccion break 
+		
+		#Extraemos el código del break:
+		getBreakCode($s1) # v0 <- código del break
+		
+		#Ahora tenemos que identificar qué tipo de break es:
+		if_break0x20:
+			li $s0, 0x20
+			bne $s0, $v0, if_break0x10
+			#Llamamos al manejador de esta excepcion
+			brk0x20()
+		
+			j end_break_if
+		if_break0x10:
+			li $s0, 0x10
+			bne $s0, $v0, else_if_break
+		
+			brk0x10()
+		
+			j end_break_if		
+		else_if_break:
+			add $s0, $zero, $v0 # s0 <- código break obtenido
+			la $a0, unknownBrk
+			li $v0, 4
+			syscall # print("Break desconocido: ")
+			
+			add $a0, $zero, $s0 #a0 <- codigo break
+			li $v0, 1
+			syscall #print(codigo encontrado)
+			
+			la $a0, endl
+			li $v0, 4
+			syscall #Imprime un salto de línea
+		
+		end_break_if:
+		
+	
+		#restauramos los registros que usamos:
+		lw $s1, temp1
+	end_if_Excp_is_brk:
+	
+	#restauramos lo que usamos
+	lw $s0, temp0
 
 	# Print information about exception.
 	#
@@ -766,7 +826,10 @@ __eoth:
 			# arreglos que contienen el backup de los registros de uso general
 			 
 	current: .word 0 # Es el indice del programa actualmente en ejecucion. (i)
-
+	temp0: .word 0   #Para guardar cosas en el ktext
+	temp1: .word 0   #Para guardar cosas en el ktext
+	temp2: .word 0   #Para guardar cosas en el ktext
+		
 	################################################################
 	##
 	## El siguiente bloque debe ser usado para la inicialización
@@ -858,7 +921,7 @@ main:
 		sw $t2, 0($sp)
 		subi $sp, $sp, 4
 				
-		#jal instrumentar #Instrumentamos PROGS[i]
+		jal instrumentar #Instrumentamos PROGS[i]
 
 		#restauramos:
 		addi $sp, $sp, 4
@@ -918,10 +981,10 @@ main:
 	sw $zero, current
 	
 	# FIN DE INICIALIZACION
-	shutdown()
+	#shutdown()
 	
-	#lw $t1, PROGS 
-	#jr $t1
+	lw $t1, PROGS 
+	jr $t1
 	
 fin:
 	li $v0 10
