@@ -531,7 +531,21 @@ s2:	.word 0
 	while_SD_t0_lt_t1:
 	bge $t0, $t1, end_while_SD_t0_lt_t1
 		#imprimimos los adds del programa i
+		
+		#Guardamos los registros que usamos:
+		sw $t0, 0($sp)
+		subi $sp, $sp, 4
+		sw $t1, 0($sp)
+		subi $sp, $sp, 4
+				
 		printAdds()	
+		
+		#restauramos lo que usamos:
+		addi $sp, $sp, 4
+		lw $t1, 0($sp)
+		addi $sp, $sp, 4
+		lw $t0, 0($sp)
+		
 	
 	#i+=1
 	addi $t0, $t0, 1
