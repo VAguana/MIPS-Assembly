@@ -724,6 +724,54 @@ s2:	.word 0
 		eret
 	end_if_Excp_is_brk:
 	
+	# Ahora tenemos que ver si la excepción fue de teclado. Para hacer eso tenemos 
+	# que verificar si $a0==0
+	
+	if_IO_Interrupt:
+		bne $zero, $a0, end_if_IO_Interrupt
+		#Como es una excepción de teclado, tenemos que ver que tecla se pulso.
+		# [s]: carga el siguiente programa disponible.
+		# [p]: carga el programa previo disponible
+		# [esc]: termina la ejecución del programa
+		# [else]: ignora la interrupcion y continua.
+		
+		sw $s1, temp1 #save s1
+		# s0: tecla presionada
+		# s1: informacion temporal
+		lw $s0, 0xffff0004
+
+		if_s_key:
+			li $s1, 0x00000073 # s1 <- s
+			bne $s0, $s1, if_p_key
+			
+			
+			
+			j end_if_key
+		if_p_key:
+			li $s1, 0x00000070 #s1 <- p
+			bne $s0, $s1, if_esc_key
+			
+			
+			
+			j end_if_key
+		if_esc_key:
+			li $s1, 0x0000001b #s1 <- esc
+			bne $s0, $s1, else_key
+			
+			#Si se presiona esc, terminamos la ejecución.
+			shutdown()
+			
+			
+			j end_if_key		
+		else_key:
+			#Ignoramos la interrupción
+			nop
+		
+		end_if_key:
+	
+		lw $s1, temp1 #restore s1
+	end_if_IO_Interrupt:
+
 	#restauramos lo que usamos
 	lw $s0, temp0
 
@@ -862,6 +910,10 @@ __eoth:
 	.globl main
 main:
 	#Inicializamos:
+	#Activamos las interrupciones de teclado:
+	li $a0, 2 # a0 <- ..010
+	sw $a0, 0xffff0000
+	
 	#Cargamos en a0 la cantidad de programas:
 	lw $a0, NUM_PROGS
 	# a0 *= 4:
