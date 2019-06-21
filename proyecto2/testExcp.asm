@@ -558,7 +558,9 @@ s2:	.word 0
 	j while_SD_t0_lt_t1
 	end_while_SD_t0_lt_t1:
 	
-	
+	#Salimos de la ejecución 
+	li $v0, 10
+	syscall
 	
 	
 .end_macro
@@ -645,7 +647,12 @@ s2:	.word 0
 # This is the exception vector address for MIPS32:
 	.ktext 0x80000180
 # Select the appropriate one for the mode in which MIPS is compiled.
-
+	
+	#Apagamos las interrupciones de teclado mientras manejamos la excepcion:
+	lw $k1, 0xffff0000
+	andi $k1, $k1, 1
+	sw $k1, 0xffff0000
+	
 	move $k1 $at		# Save $at
 	
 	sw $v0 s1		# Not re-entrant and we can't trust $sp
@@ -716,10 +723,15 @@ s2:	.word 0
 		
 		end_break_if:
 		
-	
+		#Reactivamos las excepciones de teclado:
+		lw $s0, 0xffff0000
+		ori $s0, $s0, 2
+		sw $s0, 0xffff0000
+		
 		#restauramos los registros que usamos:
 		lw $s1, temp1
 		lw $s0, temp0
+		
 				
 		eret
 	end_if_Excp_is_brk:
@@ -744,6 +756,13 @@ s2:	.word 0
 			li $s1, 0x00000073 # s1 <- s
 			bne $s0, $s1, if_p_key
 			
+			#Guardamos el programa actual:
+			storeProgram()
+			
+			#Calculamos el siguiente programa a ejecutar y lo cargamos:
+			getNextProgram()
+			sw $v0, current
+			loadProgram()
 			
 			
 			j end_if_key
@@ -770,6 +789,10 @@ s2:	.word 0
 		end_if_key:
 	
 		lw $s1, temp1 #restore s1
+		lw $s0, temp0
+		
+		#Volvemos a lo que estabamos:
+		eret
 	end_if_IO_Interrupt:
 
 	#restauramos lo que usamos
@@ -807,7 +830,7 @@ s2:	.word 0
 ok_pc:
 	li $v0 4		# syscall 4 (print_str)
 	la $a0 __m2_
-	syscall
+	syscall 
 
 	srl $a0 $k0 2		# Extract ExcCode Field
 	andi $a0 $a0 0x1f
@@ -841,6 +864,10 @@ ret:
 	mtc0 $k0 $12
 
 # Return from exception on MIPS32:
+	#Reactivamos las excepciones de teclado:
+	lw $k0, 0xffff0000
+	ori $k0, $k0, 2
+	sw $k0, 0xffff0000
 	eret
 
 # Return sequence for MIPS-I (R2000):
