@@ -416,8 +416,8 @@ s2:	.word 0
 
 	
 	finishedAllProgs:
-		li $v0, 10
-		syscall 
+		#Imprimimos el status final y terminamos
+		shutdown() 
 				
 	return_brk0x10:
 	addi $sp, $sp, 4
@@ -460,6 +460,7 @@ s2:	.word 0
 	syscall 
 	
 	lw $a0, current  #print(i)
+	addi $a0, $a0, 1
 	li $v0, 1          
 	syscall
 	
