@@ -21,6 +21,8 @@
 
 # $Header: $
 
+# Luis Diaz: 15-10420.
+# Valentina Aguana: 15-10011
 
 # Define the exception handling code.  This must go first!
 
@@ -1103,5 +1105,5 @@ fin:
 	li $v0 10
 	syscall			# syscall 10 (exit)
 
-.include "myprogs.s"
+#.include "myprogs.s"
 .include "instrumentador.asm"

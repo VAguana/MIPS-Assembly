@@ -21,6 +21,8 @@
 
 # $Header: $
 
+# Luis Diaz: 15-10420.
+# Valentina Aguana: 15-10011
 
 # Define the exception handling code.  This must go first!
 
@@ -203,13 +205,15 @@ s2:	.word 0
 	
 	# for(int s2 = i-1; s2 >= 0; s2--)
 	while_s2_gt_s3:
-		ble $s2, $s3, end_while_s2_gt_s3
+		blt $s2, $s3, end_while_s2_gt_s3
 		
-		lw $s4, 0($s1) # s4 <- finalizados[i]
+		add $s4, $zero, $s0
+		add $s4, $s4, $s1
+		lw $s4, 0($s4) # s4 <- finalizados[i]
 		
 		# if(finalizados[i]==0)
-		if_program_not_finished:
-			bnez $s4, end_if_program_not_finished
+		if_program_not_finished_prev:
+			bnez $s4, end_if_program_not_finished_prev
 			
 			#Como este programa es el siguiente no finalizado, lo retornamos
 			add $v0, $zero, $s2
@@ -217,10 +221,10 @@ s2:	.word 0
 			#Terminamos la ejecucion
 			j returnPrev
 		
-		end_if_program_not_finished:
+		end_if_program_not_finished_prev:
 		
 	
-		#i+=1
+		#i-=1
 		subi $s2, $s2, 1
 		subi $s1, $s1, 4
 		j while_s2_gt_s3
@@ -230,7 +234,7 @@ s2:	.word 0
 	# desde atrás
 	lw $s3, current # $s3 <- i
 	
-	li $s2, NUM_PROGS       # s2 <- n-1
+	lw $s2, NUM_PROGS       # s2 <- n-1
 	subi $s2, $s2, 1
 	
 	add $s1, $zero, $s0 # s1 <- [n-1]
@@ -242,6 +246,7 @@ s2:	.word 0
 	while_s2_gt_s3_b:
 		blt $s2, $s3, end_while_s2_gt_s3_b	
 	
+
 		lw $s4, 0($s1) # s4 <- finalizados[i]
 		
 		# if(finalizados[i]==0)
@@ -413,8 +418,8 @@ s2:	.word 0
 
 	
 	finishedAllProgs:
-		li $v0, 10
-		syscall 
+		#Imprimimos el status final y terminamos
+		shutdown() 
 				
 	return_brk0x10:
 	addi $sp, $sp, 4
@@ -457,6 +462,7 @@ s2:	.word 0
 	syscall 
 	
 	lw $a0, current  #print(i)
+	addi $a0, $a0, 1
 	li $v0, 1          
 	syscall
 	
@@ -558,7 +564,9 @@ s2:	.word 0
 	j while_SD_t0_lt_t1
 	end_while_SD_t0_lt_t1:
 	
-	
+	#Salimos de la ejecución 
+	li $v0, 10
+	syscall
 	
 	
 .end_macro
@@ -645,7 +653,12 @@ s2:	.word 0
 # This is the exception vector address for MIPS32:
 	.ktext 0x80000180
 # Select the appropriate one for the mode in which MIPS is compiled.
-
+	
+	#Apagamos las interrupciones de teclado mientras manejamos la excepcion:
+	lw $k1, 0xffff0000
+	andi $k1, $k1, 1
+	sw $k1, 0xffff0000
+	
 	move $k1 $at		# Save $at
 	
 	sw $v0 s1		# Not re-entrant and we can't trust $sp
@@ -679,6 +692,15 @@ s2:	.word 0
 			#Llamamos al manejador de esta excepcion
 			brk0x20()
 		
+			#restauramos los registros que usamos:
+			lw $s1, temp1
+			lw $s0, temp0
+			#Configuramos la direccion de salto:
+			mfc0 $k0 $14		# Bump EPC register
+			addiu $k0 $k0 4		# Skip faulting instruction
+						# (Need to handle delayed branch case here)
+			mtc0 $k0 $14
+			
 			j end_break_if
 		if_break0x10:
 			li $s0, 0x10
@@ -686,7 +708,11 @@ s2:	.word 0
 		
 			brk0x10()
 		
-			j end_break_if		
+			#restauramos los registros que usamos:
+			lw $s1, temp1
+			lw $s0, temp0
+			
+			j end_break_if
 		else_if_break:
 			add $s0, $zero, $v0 # s0 <- código break obtenido
 			la $a0, unknownBrk
@@ -703,15 +729,96 @@ s2:	.word 0
 		
 		end_break_if:
 		
-	
+		#Reactivamos las excepciones de teclado:
+		lw $s0, 0xffff0000
+		ori $s0, $s0, 2
+		sw $s0, 0xffff0000
+		
 		#restauramos los registros que usamos:
 		lw $s1, temp1
+		lw $s0, temp0
+		
+				
+		eret
 	end_if_Excp_is_brk:
 	
+	# Ahora tenemos que ver si la excepción fue de teclado. Para hacer eso tenemos 
+	# que verificar si $a0==0
+	
+	if_IO_Interrupt:
+		bne $zero, $a0, end_if_IO_Interrupt
+		#Como es una excepción de teclado, tenemos que ver que tecla se pulso.
+		# [s]: carga el siguiente programa disponible.
+		# [p]: carga el programa previo disponible
+		# [esc]: termina la ejecución del programa
+		# [else]: ignora la interrupcion y continua.
+		
+		sw $s1, temp1 #save s1
+		# s0: tecla presionada
+		# s1: informacion temporal
+		lw $s0, 0xffff0004
+
+		if_s_key:
+			li $s1, 0x00000073 # s1 <- s
+			bne $s0, $s1, if_p_key
+			
+			#Guardamos el programa actual:
+			storeProgram()
+			
+			#Calculamos el siguiente programa a ejecutar y lo cargamos:
+			getNextProgram()
+			sw $v0, current
+			
+			loadProgram()
+			
+			
+			j end_if_key
+		if_p_key:
+			li $s1, 0x00000070 #s1 <- p
+			bne $s0, $s1, if_esc_key
+			
+			#Guardamos el programa actual:
+			storeProgram()
+			
+			#Calculamos el siguiente programa a ejecutar y lo cargamos:
+			getPrevProgram()
+			sw $v0, current
+			
+			loadProgram()
+			
+			j end_if_key
+		if_esc_key:
+			li $s1, 0x0000001b #s1 <- esc
+			bne $s0, $s1, else_key
+			
+			#Si se presiona esc, terminamos la ejecución.
+			shutdown()
+			
+			
+			j end_if_key		
+		else_key:
+			#Ignoramos la interrupción
+			nop
+		
+		end_if_key:
+	
+		lw $s1, temp1 #restore s1
+		lw $s0, temp0
+		
+		#restauramos input
+		lw $k0, 0xffff0000
+		ori $k0, $k0, 2
+		sw $k0, 0xffff0000
+		
+		#Volvemos a lo que estabamos:
+		eret
+	end_if_IO_Interrupt:
+
 	#restauramos lo que usamos
 	lw $s0, temp0
 
-	# Print information about exception.
+	
+# Print information about exception.
 	#
 	li $v0 4		# syscall 4 (print_str)
 	la $a0 __m1_
@@ -742,7 +849,7 @@ s2:	.word 0
 ok_pc:
 	li $v0 4		# syscall 4 (print_str)
 	la $a0 __m2_
-	syscall
+	syscall 
 
 	srl $a0 $k0 2		# Extract ExcCode Field
 	andi $a0 $a0 0x1f
@@ -751,7 +858,6 @@ ok_pc:
 
 # Interrupt-specific code goes here!
 # Don't skip instruction at EPC since it has not executed.
-
 
 ret:
 # Return from (non-interrupt) exception. Skip offending instruction
@@ -777,6 +883,10 @@ ret:
 	mtc0 $k0 $12
 
 # Return from exception on MIPS32:
+	#Reactivamos las excepciones de teclado:
+	lw $k0, 0xffff0000
+	ori $k0, $k0, 2
+	sw $k0, 0xffff0000
 	eret
 
 # Return sequence for MIPS-I (R2000):
@@ -846,6 +956,10 @@ __eoth:
 	.globl main
 main:
 	#Inicializamos:
+	#Activamos las interrupciones de teclado:
+	li $a0, 2 # a0 <- ..010
+	sw $a0, 0xffff0000
+	
 	#Cargamos en a0 la cantidad de programas:
 	lw $a0, NUM_PROGS
 	# a0 *= 4:
@@ -982,7 +1096,7 @@ main:
 	sw $zero, current
 	
 	# FIN DE INICIALIZACION
-	#shutdown()
+
 	
 	lw $t1, PROGS 
 	jr $t1
@@ -991,5 +1105,5 @@ fin:
 	li $v0 10
 	syscall			# syscall 10 (exit)
 
-.include "myprogs.s"
+#.include "myprogs.s"
 .include "instrumentador.asm"
