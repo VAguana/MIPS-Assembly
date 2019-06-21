@@ -762,6 +762,7 @@ s2:	.word 0
 			#Calculamos el siguiente programa a ejecutar y lo cargamos:
 			getNextProgram()
 			sw $v0, current
+			
 			loadProgram()
 			
 			
