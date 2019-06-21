@@ -203,13 +203,15 @@ s2:	.word 0
 	
 	# for(int s2 = i-1; s2 >= 0; s2--)
 	while_s2_gt_s3:
-		ble $s2, $s3, end_while_s2_gt_s3
+		blt $s2, $s3, end_while_s2_gt_s3
 		
-		lw $s4, 0($s1) # s4 <- finalizados[i]
+		add $s4, $zero, $s0
+		add $s4, $s4, $s1
+		lw $s4, 0($s4) # s4 <- finalizados[i]
 		
 		# if(finalizados[i]==0)
-		if_program_not_finished:
-			bnez $s4, end_if_program_not_finished
+		if_program_not_finished_prev:
+			bnez $s4, end_if_program_not_finished_prev
 			
 			#Como este programa es el siguiente no finalizado, lo retornamos
 			add $v0, $zero, $s2
@@ -217,10 +219,10 @@ s2:	.word 0
 			#Terminamos la ejecucion
 			j returnPrev
 		
-		end_if_program_not_finished:
+		end_if_program_not_finished_prev:
 		
 	
-		#i+=1
+		#i-=1
 		subi $s2, $s2, 1
 		subi $s1, $s1, 4
 		j while_s2_gt_s3
@@ -230,7 +232,7 @@ s2:	.word 0
 	# desde atrás
 	lw $s3, current # $s3 <- i
 	
-	li $s2, NUM_PROGS       # s2 <- n-1
+	lw $s2, NUM_PROGS       # s2 <- n-1
 	subi $s2, $s2, 1
 	
 	add $s1, $zero, $s0 # s1 <- [n-1]
@@ -242,6 +244,7 @@ s2:	.word 0
 	while_s2_gt_s3_b:
 		blt $s2, $s3, end_while_s2_gt_s3_b	
 	
+
 		lw $s4, 0($s1) # s4 <- finalizados[i]
 		
 		# if(finalizados[i]==0)
@@ -771,7 +774,14 @@ s2:	.word 0
 			li $s1, 0x00000070 #s1 <- p
 			bne $s0, $s1, if_esc_key
 			
+			#Guardamos el programa actual:
+			storeProgram()
 			
+			#Calculamos el siguiente programa a ejecutar y lo cargamos:
+			getPrevProgram()
+			sw $v0, current
+			
+			loadProgram()
 			
 			j end_if_key
 		if_esc_key:
@@ -791,6 +801,11 @@ s2:	.word 0
 	
 		lw $s1, temp1 #restore s1
 		lw $s0, temp0
+		
+		#restauramos input
+		lw $k0, 0xffff0000
+		ori $k0, $k0, 2
+		sw $k0, 0xffff0000
 		
 		#Volvemos a lo que estabamos:
 		eret
