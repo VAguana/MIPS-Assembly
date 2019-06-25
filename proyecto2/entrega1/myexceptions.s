@@ -761,10 +761,11 @@ s2:	.word 0
 		if_s_key:
 			li $s1, 0x00000073 # s1 <- s
 			bne $s0, $s1, if_p_key
-			
+			#Restaruamos  $s0 para guardar el programa:
+			lw $s0, temp0
 			#Guardamos el programa actual:
 			storeProgram()
-			
+			lw $s0, 0xffff0004
 			#Calculamos el siguiente programa a ejecutar y lo cargamos:
 			getNextProgram()
 			sw $v0, current
